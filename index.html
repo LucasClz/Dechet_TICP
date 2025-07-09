@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Localisation Déchets – TICP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.3;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    header h1 { font-size: 1.6rem; margin-bottom: 0.1rem }
+    header p  { font-size: 0.8rem; color: #666 }
+
+    .search-panel {
+      background: #fff;
+      padding: 0.75rem;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 0.75rem;
+    }
+    form {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+    }
+    .form-group {
+      flex: 1 1 120px;
+      display: flex; flex-direction: column;
+    }
+    .form-group label {
+      font-size: 0.8rem; margin-bottom: 0.2rem;
+    }
+    .choices__inner { min-height: 1.8rem; font-size: 0.8rem; }
+    button, #enableClickSelect {
+      background: #007bff; color: #fff; border: none;
+      padding: 0.4rem 0.8rem; font-size: 0.8rem;
+      border-radius: 4px; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover, #enableClickSelect:hover { background: #0056b3 }
+
+    .main-content {
+      display: flex; gap: 0.5rem;
+    }
+    #mapContainer {
+      position: relative; flex: 1;
+      background: #fff; border-radius: 6px;
+      overflow: hidden;
+      min-height: 400px;
+    }
+    #mapImage { width: 100%; display: block }
+    #overlay  { position: absolute; top: 0; left: 0 }
+
+    /* panneau latéral ultra-compact */
+    #infoPanel {
+      width: 160px;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 0.5rem;
+      font-size: 0.8rem;
+      line-height: 1.2;
+    }
+    #infoPanel h2 {
+      font-size: 0.9rem; margin-bottom: 0.25rem;
+    }
+    #dechetList {
+      list-style: disc inside;
+      padding-left: 0.5rem;
+      max-height: 10rem;
+      overflow-y: auto;
+    }
+    #zonePopup {
+      position: absolute;
+      width: 300px; height: 300px;
+      object-fit: cover; border: 2px solid #007bff;
+      border-radius: 4px; display: none;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Localisation des déchets</h1>
+      <p>Choisissez votre point de départ et le type de déchet pour trouver la zone la plus proche.</p>
+    </header>
+
+    <section class="search-panel">
+      <form id="searchForm">
+        <div class="form-group">
+          <button type="button" id="enableClickSelect">Choisir sur la carte</button>
+        </div>
+        <div class="form-group">
+          <label for="zoneSelect">Emplacement</label>
+          <select id="zoneSelect" placeholder="Rechercher une zone"></select>
+        </div>
+        <div class="form-group">
+          <label for="dechetSelect">Déchet</label>
+          <select id="dechetSelect" placeholder="Rechercher un déchet"></select>
+        </div>
+        <div class="form-group">
+          <button type="submit">OK</button>
+        </div>
+      </form>
+    </section>
+
+    <div class="main-content">
+      <section id="mapContainer">
+        <img id="mapImage" src="1.png" alt="Plan du site"/>
+        <canvas id="overlay"></canvas>
+        <img id="zonePopup" src="" alt="Zone déchets"/>
+      </section>
+
+      <aside id="infoPanel">
+        <h2>Déchets</h2>
+        <ul id="dechetList"><li>Aucune zone sélectionnée</li></ul>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+  <script>
+    // --- données complètes ---
+    const coords = {
+      "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+      "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+      "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+      "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+      "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+      "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+      "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+      "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+      "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+      "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+      "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+      "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+      "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+      "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+      "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+      "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+      "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+      "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+      "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+      "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+      "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+      "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+      "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598}
+    };
+    const dechetsParZone = {
+      Z1:["Bois","Carton","Bac noir","Plastique"],
+      Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
+      Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosol","Pélican","Huile usagées"],
+      Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
+      Z5:["Bac noir","Bac jaune","Carton","Cartouche d'encre"],
+      Z6:["Bac noir","bac jaune"],
+      Z7:["Bac noir","Plastique"],
+      Z8:["Bois","Carton","Ferreux","Polystyrène","Plastique","Bac jaune","Bac noir"],
+      Z9:["Carton","Bois","Bac noir","Réhausses KC"],
+      Z10:["Aérosol","Bac noir","Non ferreux","Carton"],
+      Z11:["Carton","Bois","Polystyrène","Plastique","DEEE","Non ferreux","Réhausses KC","Aérosol","Pélican","Bac jaune","Ferreux","Caoutchouc","Geobox Déchets dangereux"],
+      Z12:["Bac noir","Bac jaune"],
+      Z13:["Piles et Accumulateur","Geobox Déchets dangereux","Aérosols","Ferreux","Cuivre","Non ferreux","DEEE","Caoutchouc","Huile usagées"],
+      Z14:["Aérosols","Ferreux","Non ferreux","Bac noir","Bac jaune","Geobox déchets dangereux","Carton","Bois","Réhausses KC"],
+      Z15:["DEEE","Carton","Non ferreux","Ferreux","Plastique","Polystyrène","Bac noir"],
+      Z16:["Piles et Accumulateur","Cartouche d'encre","Vêtements usagées","Bac noir","Aérosols","DEEE","Carton","Bac jaune"],
+      Z17:["DEEE","Aérosols","Bac noir","Geobox Déchets dangereux","Huile usagées"],
+      Z18:["Bois","Carton","Ferreux","Non ferreux","Bac noir","Bac jaune","Verre","Déchets non dangereux"],
+      Z19:["Bac noir"],
+      Z20:["Ferreux","Non ferreux","Geobox Déchets dangereux","Bois","Carton","Plastique","Bac plomb"],
+      Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
+      Z22:["Geobox Déchets dangereux","Fût peinture"],
+      Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
+      Z24:["Caoutchouc","Pélican","Verre"],
+      Z25:["Geobox Déchets dangereux"],
+      Z26:["Carton","Bois"],
+      Z27:["Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","Aérosol"],
+      Z28:["Ferreux","Bac noir","Fût filtres","Huile usagées"],
+      Z29:["Geobox Déchets dangereux"],
+      Z30:["Geobox Déchets dangereux","Pélican","Bac jaune","Carton","Bois","DEEE","Non ferreux","Ferreux","Aérosols","Amiante"],
+      Z31:["Bac noir","Bac jaune","Amiante"],
+      Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
+      Z33:["Amiante"],
+      Z34:["Bac noir","Bac jaune"],
+      Z35:["Bac noir","Bac jaune","Plastique","Carton"]
+    };
+
+    // image popup
+    const zoneImages = { Z27:'Capture d’écran 2025-07-02 143347.png' };
+
+    // Choices.js
+    const zoneSelect   = document.getElementById('zoneSelect');
+    const dechetSelect = document.getElementById('dechetSelect');
+    const choicesZone  = new Choices(zoneSelect,   { searchEnabled:true, shouldSort:false, itemSelectText:'', placeholderValue:'Rechercher une zone…' });
+    const choicesDechet= new Choices(dechetSelect, { searchEnabled:true, shouldSort:true,  itemSelectText:'', placeholderValue:'Rechercher un déchet…' });
+
+    // Remplissage initial et info panel
+    function updateInfoPanel(zone) {
+      const list = document.getElementById('dechetList');
+      list.innerHTML = '';
+      (dechetsParZone[zone]||[]).sort().forEach(t=>{
+        const li = document.createElement('li');
+        li.textContent = t;
+        list.appendChild(li);
+      });
+      if (!(dechetsParZone[zone]||[]).length) {
+        list.innerHTML = '<li>Aucun déchet</li>';
+      }
+    }
+    Object.keys(coords).filter(z=>!z.startsWith('Z')).forEach(z=>{
+      choicesZone.setChoices([{value:z,label:z}], 'value','label', false);
+    });
+    const allTypes = Array.from(new Set(Object.values(dechetsParZone).flat())).sort();
+    allTypes.forEach(t=>{
+      choicesDechet.setChoices([{value:t,label:t}], 'value','label', false);
+    });
+    zoneSelect.addEventListener('change', ()=>{
+      updateInfoPanel(zoneSelect.value);
+      const types = dechetsParZone[zoneSelect.value]||allTypes;
+      choicesDechet.clearChoices();
+      types.forEach(t=>{
+        choicesDechet.setChoices([{value:t,label:t}], 'value','label', false);
+      });
+    });
+
+    // Canvas, tracé, hover, click, popup
+    const canvas = document.getElementById('overlay');
+    const imgEl  = document.getElementById('mapImage');
+    const popup  = document.getElementById('zonePopup');
+    let hotspots = [], hoverHotspot = null;
+    function ajusterCanvas(){ canvas.width=imgEl.clientWidth; canvas.height=imgEl.clientHeight; }
+    window.addEventListener('resize',ajusterCanvas);
+    document.getElementById('searchForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      const dep = zoneSelect.value;
+      const wanted = dechetSelect.value.toLowerCase();
+      let best=null, dmin=Infinity;
+      const from = coords[dep];
+      for(let z in dechetsParZone){
+        if(dechetsParZone[z].some(x=>x.toLowerCase()===wanted)){
+          const to=coords[z], d=Math.hypot(to.x-from.x,to.y-from.y);
+          if(d<dmin){dmin=d;best=z;}
+        }
+      }
+      if(!best) return alert("Aucune zone pour ce déchet");
+      updateInfoPanel(best);
+      // dessin
+      const ctx=canvas.getContext('2d');
+      hotspots=[];
+      const fromPx = {x: from.x*(canvas.width/imgEl.naturalWidth), y: from.y*(canvas.height/imgEl.naturalHeight)};
+      const to    = coords[best];
+      const toPx   = {x: to.x*(canvas.width/imgEl.naturalWidth),   y: to.y*(canvas.height/imgEl.naturalHeight)};
+      hotspots.push({x:toPx.x,y:toPx.y,r:12,zone:best});
+      let r=10, growing=true;
+      (function anim(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(fromPx.x, fromPx.y);
+        ctx.lineTo(toPx.x,   toPx.y);
+        ctx.strokeStyle = `rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
+        ctx.lineWidth=4; ctx.setLineDash([10,6]); ctx.stroke();
+        ctx.restore();
+        [ {p:fromPx,color:'red'}, {p:toPx,color:'green'} ].forEach(o=>{
+          ctx.beginPath();
+          ctx.arc(o.p.x,o.p.y,r,0,2*Math.PI);
+          ctx.strokeStyle=o.color; ctx.lineWidth=3; ctx.stroke();
+        });
+        if(hoverHotspot){
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(hoverHotspot.x, hoverHotspot.y, hoverHotspot.r+5, 0,2*Math.PI);
+          ctx.fillStyle='rgba(255,255,0,0.3)'; ctx.fill();
+          ctx.restore();
+        }
+        r += growing?0.3:-0.3; if(r>=15||r<=10) growing=!growing;
+        requestAnimationFrame(anim);
+      })();
+    });
+    canvas.addEventListener('mousemove',e=>{
+      const rect=canvas.getBoundingClientRect();
+      const x=e.clientX-rect.left, y=e.clientY-rect.top;
+      hoverHotspot=null;
+      hotspots.forEach(h=>{
+        if(Math.hypot(h.x-x,h.y-y)<=h.r+5) hoverHotspot=h;
+      });
+    });
+    canvas.addEventListener('mouseleave',()=>hoverHotspot=null);
+    canvas.addEventListener('click',e=>{
+      const rect=canvas.getBoundingClientRect();
+      const x=e.clientX-rect.left, y=e.clientY-rect.top;
+      for(let h of hotspots){
+        if(Math.hypot(h.x-x,h.y-y)<=h.r){
+          const src = zoneImages[h.zone];
+          if(src){
+            popup.src=src;
+            popup.style.left=`${h.x-150}px`;
+            popup.style.top =`${h.y-310}px`;
+            popup.style.display='block';
+          }
+          return;
+        }
+      }
+      popup.style.display='none';
+    });
+    // sélection par clic
+    let sel=false;
+    document.getElementById('enableClickSelect').addEventListener('click',()=>{
+      sel=!sel;
+      document.getElementById('enableClickSelect').textContent = sel?'Cliquez…':'Choisir sur la carte';
+    });
+    canvas.addEventListener('click',e=>{
+      if(!sel) return;
+      const rect=canvas.getBoundingClientRect();
+      const x=(e.clientX-rect.left)*(imgEl.naturalWidth/canvas.width);
+      const y=(e.clientY-rect.top)*(imgEl.naturalHeight/canvas.height);
+      let best, dmin=Infinity;
+      Object.keys(coords).forEach(n=>{
+        if(!n.startsWith('Z')){
+          const c=coords[n];
+          const d=Math.hypot(c.x-x,c.y-y);
+          if(d<dmin){dmin=d;best=n;}
+        }
+      });
+      if(best){
+        choicesZone.setChoiceByValue(best);
+        zoneSelect.dispatchEvent(new Event('change'));
+        sel=false;
+        document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
+      }
+    });
+    window.onload=ajusterCanvas;
+  </script>
+</body>
+</html>
