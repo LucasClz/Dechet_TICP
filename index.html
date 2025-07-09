@@ -103,8 +103,14 @@
       overflow: hidden;
       min-height: 500px;
     }
-    #mapImage { width: 100%; display: block; }
-    #overlay  { position: absolute; top: 0; left: 0; }
+    #mapIMAGE, #overlay {
+      width: 100%;
+      display: block;
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+    }
 
     /* ==== Panneau latéral ==== */
     #infoPanel {
@@ -163,9 +169,20 @@
       #infoPanel {
         width: 100%;
         margin-top: 1rem;
+        max-height: 30vh;
+        overflow-y: auto;
       }
+
+      /* Carte agrandie */
       #mapContainer {
-        min-height: 300px;
+        width: 100%;
+        height: 60vh;
+        min-height: unset;
+      }
+      #mapContainer img,
+      #mapContainer canvas {
+        width: 100%;
+        height: 100%;
       }
     }
   </style>
@@ -198,7 +215,7 @@
 
     <div class="main-content">
       <section id="mapContainer">
-        <img id="mapImage" src="1.png" alt="Plan du site"/>
+        <img id="mapIMAGE" src="1.png" alt="Plan du site"/>
         <canvas id="overlay"></canvas>
         <img id="zonePopup" src="" alt="Zone déchets"/>
       </section>
@@ -211,7 +228,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
   <script>
-    // --- données complètes ---
     const coords = {
       "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
       "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
@@ -275,7 +291,6 @@
       Z35:["Bac noir","Bac jaune","Plastique","Carton"]
     };
 
-    // images par zone
     const zoneImages = {
       Z5:'Zone 5.jpg',Z12:'Zone 12.jpg',Z14:'Zone 14.jpg',
       Z16:'Zone 16.jpg',Z18:'Zone 18.jpg',Z23:'Zone 23.jpg',
@@ -283,13 +298,11 @@
       Z29:'Zone 29.jpg',Z30:'Zone 30.jpg',Z34:'Zone 34.jpg'
     };
 
-    // Choices.js init
     const zoneSelect   = document.getElementById('zoneSelect');
     const dechetSelect = document.getElementById('dechetSelect');
     const choicesZone  = new Choices(zoneSelect,   { searchEnabled:true, shouldSort:false, itemSelectText:'', placeholderValue:'Rechercher une zone…' });
     const choicesDechet= new Choices(dechetSelect, { searchEnabled:true, shouldSort:true,  itemSelectText:'', placeholderValue:'Rechercher un déchet…' });
 
-    // Remplissage et panel info
     function updateInfoPanel(zone) {
       const list = document.getElementById('dechetList');
       list.innerHTML = '';
@@ -302,6 +315,7 @@
         list.innerHTML = '<li>Aucun déchet</li>';
       }
     }
+
     Object.keys(coords).filter(z=>!z.startsWith('Z')).forEach(z=>{
       choicesZone.setChoices([{value:z,label:z}], 'value','label', false);
     });
@@ -316,9 +330,8 @@
       types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
     });
 
-    // Canvas / tracé / popup
     const canvas = document.getElementById('overlay');
-    const imgEl  = document.getElementById('mapImage');
+    const imgEl  = document.getElementById('mapIMAGE');
     const popup  = document.getElementById('zonePopup');
     let hotspots = [], hoverHotspot = null;
 
@@ -337,37 +350,37 @@
       const from = coords[dep];
       for(let z in dechetsParZone){
         if(dechetsParZone[z].some(x=>x.toLowerCase()===wanted)){
-          const to=coords[z], d=Math.hypot(to.x-from.x,to.y-from.y);
-          if(d<dmin){dmin=d;best=z;}
+          const to = coords[z], d = Math.hypot(to.x-from.x,to.y-from.y);
+          if(d<dmin){ dmin=d; best=z; }
         }
       }
       if(!best) return alert("Aucune zone pour ce déchet");
       updateInfoPanel(best);
-      const ctx=canvas.getContext('2d');
-      hotspots=[];
-      const fpx={x:from.x*(canvas.width/imgEl.naturalWidth),y:from.y*(canvas.height/imgEl.naturalHeight)};
-      const t=coords[best];
-      const tpx={x:t.x*(canvas.width/imgEl.naturalWidth),y:t.y*(canvas.height/imgEl.naturalHeight)};
-      hotspots.push({x:tpx.x,y:tpx.y,r:12,zone:best});
-      let r=10,growing=true;
+      const ctx = canvas.getContext('2d');
+      hotspots = [];
+      const fpx = { x: from.x*(canvas.width/imgEl.naturalWidth),  y: from.y*(canvas.height/imgEl.naturalHeight) };
+      const t    = coords[best];
+      const tpx  = { x: t.x*(canvas.width/imgEl.naturalWidth), y: t.y*(canvas.height/imgEl.naturalHeight) };
+      hotspots.push({ x: tpx.x, y: tpx.y, r: 12, zone: best });
+      let r = 10, growing = true;
       (function anim(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(fpx.x,fpx.y);ctx.lineTo(tpx.x,tpx.y);
-        ctx.strokeStyle=`rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
-        ctx.lineWidth=4;ctx.setLineDash([10,6]);ctx.stroke();
+        ctx.moveTo(fpx.x, fpx.y); ctx.lineTo(tpx.x, tpx.y);
+        ctx.strokeStyle = `rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
+        ctx.lineWidth=4; ctx.setLineDash([10,6]); ctx.stroke();
         ctx.restore();
         [{p:fpx,color:'red'},{p:tpx,color:'green'}].forEach(o=>{
           ctx.beginPath();
           ctx.arc(o.p.x,o.p.y,r,0,2*Math.PI);
-          ctx.strokeStyle=o.color;ctx.lineWidth=3;ctx.stroke();
+          ctx.strokeStyle=o.color; ctx.lineWidth=3; ctx.stroke();
         });
         if(hoverHotspot){
           ctx.save();
           ctx.beginPath();
-          ctx.arc(hoverHotspot.x,hoverHotspot.y,hoverHotspot.r+5,0,2*Math.PI);
-          ctx.fillStyle='rgba(255,255,0,0.3)';ctx.fill();
+          ctx.arc(hoverHotspot.x, hoverHotspot.y, hoverHotspot.r+5, 0,2*Math.PI);
+          ctx.fillStyle='rgba(255,255,0,0.3)'; ctx.fill();
           ctx.restore();
         }
         r += growing?0.3:-0.3; if(r>=15||r<=10) growing=!growing;
@@ -379,7 +392,9 @@
       const rect=canvas.getBoundingClientRect();
       const x=e.clientX-rect.left, y=e.clientY-rect.top;
       hoverHotspot=null;
-      hotspots.forEach(h=>{ if(Math.hypot(h.x-x,h.y-y)<=h.r+5) hoverHotspot=h; });
+      hotspots.forEach(h=>{
+        if(Math.hypot(h.x-x,h.y-y)<=h.r+5) hoverHotspot=h;
+      });
     });
     canvas.addEventListener('mouseleave',()=>hoverHotspot=null);
     canvas.addEventListener('click', e=>{
@@ -387,11 +402,11 @@
       const x=e.clientX-rect.left, y=e.clientY-rect.top;
       for(let h of hotspots){
         if(Math.hypot(h.x-x,h.y-y)<=h.r){
-          const src=zoneImages[h.zone];
+          const src = zoneImages[h.zone];
           if(src){
             popup.src=src;
-            popup.style.left=`${h.x-popup.width/2}px`;
-            popup.style.top=`${h.y-popup.height-10}px`;
+            popup.style.left=`${h.x - popup.width/2}px`;
+            popup.style.top =`${h.y - popup.height - 10}px`;
             popup.style.display='block';
           }
           return;
@@ -400,7 +415,6 @@
       popup.style.display='none';
     });
 
-    // sélection par clic
     let sel=false;
     document.getElementById('enableClickSelect').addEventListener('click',()=>{
       sel=!sel;
@@ -414,12 +428,13 @@
       let best, dmin=Infinity;
       Object.keys(coords).forEach(n=>{
         if(!n.startsWith('Z')){
-          const c=coords[n], d=Math.hypot(c.x-x,c.y-y);
+          const c=coords[n];
+          const d=Math.hypot(c.x-x,c.y-y);
           if(d<dmin){dmin=d;best=n;}
         }
       });
       if(best){
-        new Choices(zoneSelect).setChoiceByValue(best);
+        choicesZone.setChoiceByValue(best);
         zoneSelect.dispatchEvent(new Event('change'));
         sel=false;
         document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
