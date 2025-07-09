@@ -7,7 +7,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
   <style>
-    /* ==== Thème SNCF ==== */
     :root {
       --sncf-magenta: #E6007E;
       --sncf-purple:  #5C005C;
@@ -15,7 +14,6 @@
       --text-dark:    #333;
     }
 
-    /* ==== Fond d’écran ==== */
     body {
       margin: 0; padding: 0;
       font-family: 'Roboto', sans-serif;
@@ -24,7 +22,6 @@
       line-height: 1.4;
     }
 
-    /* ==== Conteneur ==== */
     .container {
       max-width: 1400px;
       margin: 1rem auto;
@@ -34,7 +31,6 @@
       border-radius: 8px;
     }
 
-    /* ==== Header ==== */
     header {
       text-align: center;
       margin-bottom: 1rem;
@@ -49,7 +45,6 @@
       color: #555;
     }
 
-    /* ==== Formulaire ==== */
     .search-panel {
       background: #fff;
       padding: 1rem;
@@ -90,7 +85,6 @@
       background: var(--sncf-purple);
     }
 
-    /* ==== Contenu principal ==== */
     .main-content {
       display: flex;
       gap: 1rem;
@@ -102,17 +96,63 @@
       border-radius: 6px;
       overflow: hidden;
       min-height: 500px;
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      /* NEW: For mobile, allow it to stretch more naturally */
     }
     #mapIMAGE, #overlay {
       width: 100%;
+      height: auto;
       display: block;
+      object-fit: contain;
+      /* Let image stretch to container */
+      max-width: 100%;
+      max-height: 100%;
+      /* Remove fixed px height to allow responsiveness */
     }
     #overlay {
       position: absolute;
       top: 0; left: 0;
+      pointer-events: none;
+      /* So only one canvas is active for overlay, and pointer events go to parent */
     }
 
-    /* ==== Panneau latéral ==== */
+    /* Pour garantir que le canvas couvre toujours l'image */
+    #mapContainer {
+      position: relative;
+    }
+    #mapIMAGE {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      max-height: none;
+    }
+    #overlay {
+      pointer-events: auto;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #zonePopup {
+      position: absolute;
+      width: 80vw;
+      max-width: 300px;
+      height: auto;
+      max-height: 300px;
+      object-fit: cover;
+      border: 3px solid var(--sncf-magenta);
+      border-radius: 6px;
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      background: #fff;
+      z-index: 10;
+    }
+
     #infoPanel {
       width: 160px;
       background: #fff;
@@ -138,20 +178,25 @@
       margin-bottom: 0.25rem;
     }
 
-    /* ==== Popup image ==== */
-    #zonePopup {
-      position: absolute;
-      width: 300px;
-      height: 300px;
-      object-fit: cover;
-      border: 3px solid var(--sncf-magenta);
-      border-radius: 6px;
-      display: none;
-      pointer-events: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    @media (max-width: 1020px) {
+      .main-content {
+        flex-direction: column;
+      }
+      #infoPanel {
+        width: 100%;
+        margin-top: 1rem;
+        max-width: 100%;
+        max-height: 30vh;
+        overflow-y: auto;
+      }
+      #mapContainer {
+        width: 100%;
+        min-height: 350px;
+        height: 50vw;
+        max-height: 60vw;
+      }
     }
 
-    /* ==== Adaptation mobile ==== */
     @media (max-width: 768px) {
       header h1 { font-size: 1.5rem; }
       header p  { font-size: 0.9rem; }
@@ -169,20 +214,41 @@
       #infoPanel {
         width: 100%;
         margin-top: 1rem;
+        max-width: 100%;
         max-height: 30vh;
         overflow-y: auto;
       }
-
-      /* Carte agrandie */
       #mapContainer {
         width: 100%;
-        height: 60vh;
-        min-height: unset;
+        min-height: 250px;
+        height: 60vw;
+        max-height: 70vw;
       }
-      #mapContainer img,
-      #mapContainer canvas {
+      #mapIMAGE,
+      #overlay {
         width: 100%;
-        height: 100%;
+        height: auto;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      #zonePopup {
+        width: 96vw;
+        max-width: 320px;
+        height: auto;
+        max-height: 250px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #mapContainer {
+        min-height: 160px;
+        height: 55vw;
+        max-height: 70vw;
+      }
+      #zonePopup {
+        width: 98vw;
+        max-width: 330px;
+        max-height: 180px;
       }
     }
   </style>
@@ -228,6 +294,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
   <script>
+    // --- Données ---
     const coords = {
       "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
       "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
@@ -290,7 +357,6 @@
       Z34:["Bac noir","Bac jaune"],
       Z35:["Bac noir","Bac jaune","Plastique","Carton"]
     };
-
     const zoneImages = {
       Z5:'Zone 5.jpg',Z12:'Zone 12.jpg',Z14:'Zone 14.jpg',
       Z16:'Zone 16.jpg',Z18:'Zone 18.jpg',Z23:'Zone 23.jpg',
@@ -298,6 +364,7 @@
       Z29:'Zone 29.jpg',Z30:'Zone 30.jpg',Z34:'Zone 34.jpg'
     };
 
+    // --- Initialisation des sélecteurs ---
     const zoneSelect   = document.getElementById('zoneSelect');
     const dechetSelect = document.getElementById('dechetSelect');
     const choicesZone  = new Choices(zoneSelect,   { searchEnabled:true, shouldSort:false, itemSelectText:'', placeholderValue:'Rechercher une zone…' });
@@ -330,16 +397,35 @@
       types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
     });
 
+    // --- Gestion de la carte et du canvas ---
     const canvas = document.getElementById('overlay');
     const imgEl  = document.getElementById('mapIMAGE');
     const popup  = document.getElementById('zonePopup');
     let hotspots = [], hoverHotspot = null;
 
     function ajusterCanvas(){
-      canvas.width  = imgEl.clientWidth;
-      canvas.height = imgEl.clientHeight;
+      // Adapter le canvas à l'image affichée (responsive !)
+      const rect = imgEl.getBoundingClientRect();
+      // On prend la largeur réelle affichée de l'image
+      canvas.width  = rect.width;
+      canvas.height = rect.height;
+      canvas.style.width  = rect.width+'px';
+      canvas.style.height = rect.height+'px';
+      // Redessiner s'il y avait déjà une recherche
+      if (hotspots.length > 0) {
+        dessinerHotspots();
+      }
     }
+
+    function dessinerHotspots() {
+      // Redessine l'animation s'il y a une recherche en cours après redimension
+      // (rejouer la recherche, ici on simplifie : on ne mémorise que le dernier hotspot)
+      // Appelée dans ajusterCanvas si besoin
+      // Cette fonction est remplacée par la fonction anim dans submit, donc rien à faire ici
+    }
+
     window.addEventListener('resize', ajusterCanvas);
+    imgEl.onload = ajusterCanvas;
     window.onload = ajusterCanvas;
 
     document.getElementById('searchForm').addEventListener('submit', e=>{
@@ -358,12 +444,15 @@
       updateInfoPanel(best);
       const ctx = canvas.getContext('2d');
       hotspots = [];
-      const fpx = { x: from.x*(canvas.width/imgEl.naturalWidth),  y: from.y*(canvas.height/imgEl.naturalHeight) };
+      // Calcul des ratios pour correspondance coord image/canvas responsive:
+      const ratioX = canvas.width / imgEl.naturalWidth;
+      const ratioY = canvas.height / imgEl.naturalHeight;
+      const fpx = { x: from.x*ratioX,  y: from.y*ratioY };
       const t    = coords[best];
-      const tpx  = { x: t.x*(canvas.width/imgEl.naturalWidth), y: t.y*(canvas.height/imgEl.naturalHeight) };
+      const tpx  = { x: t.x*ratioX, y: t.y*ratioY };
       hotspots.push({ x: tpx.x, y: tpx.y, r: 12, zone: best });
       let r = 10, growing = true;
-      (function anim(){
+      function anim(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.save();
         ctx.beginPath();
@@ -385,7 +474,8 @@
         }
         r += growing?0.3:-0.3; if(r>=15||r<=10) growing=!growing;
         requestAnimationFrame(anim);
-      })();
+      }
+      anim();
     });
 
     canvas.addEventListener('mousemove', e=>{
@@ -405,8 +495,13 @@
           const src = zoneImages[h.zone];
           if(src){
             popup.src=src;
-            popup.style.left=`${h.x - popup.width/2}px`;
-            popup.style.top =`${h.y - popup.height - 10}px`;
+            // Affichage popup, position intelligente (centré sur le point, mais visible)
+            let px = h.x - popup.offsetWidth/2;
+            let py = h.y - popup.offsetHeight - 10;
+            if (isNaN(px) || px < 0) px = 5;
+            if (isNaN(py) || py < 0) py = 5;
+            popup.style.left = px+'px';
+            popup.style.top  = py+'px';
             popup.style.display='block';
           }
           return;
@@ -423,6 +518,7 @@
     canvas.addEventListener('click', e=>{
       if(!sel) return;
       const rect=canvas.getBoundingClientRect();
+      // Conversion coord écran -> coord image naturelle (pour la recherche du point le plus proche)
       const x=(e.clientX-rect.left)*(imgEl.naturalWidth/canvas.width);
       const y=(e.clientY-rect.top)*(imgEl.naturalHeight/canvas.height);
       let best, dmin=Infinity;
@@ -439,6 +535,15 @@
         sel=false;
         document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
       }
+    });
+
+    // Pour garantir la taille du canvas à chaque changement de taille d'image
+    window.addEventListener('orientationchange', ajusterCanvas);
+    window.addEventListener('resize', ajusterCanvas);
+
+    // Fix popup sur mobile après redimension
+    window.addEventListener('resize', ()=>{
+      if (popup.style.display==='block') popup.style.display='none';
     });
   </script>
 </body>
