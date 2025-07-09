@@ -99,26 +99,20 @@
       display: flex;
       align-items: stretch;
       width: 100%;
-      /* NEW: For mobile, allow it to stretch more naturally */
     }
     #mapIMAGE, #overlay {
       width: 100%;
       height: auto;
       display: block;
       object-fit: contain;
-      /* Let image stretch to container */
       max-width: 100%;
       max-height: 100%;
-      /* Remove fixed px height to allow responsiveness */
     }
     #overlay {
       position: absolute;
       top: 0; left: 0;
       pointer-events: none;
-      /* So only one canvas is active for overlay, and pointer events go to parent */
     }
-
-    /* Pour garantir que le canvas couvre toujours l'image */
     #mapContainer {
       position: relative;
     }
@@ -219,31 +213,47 @@
         overflow-y: auto;
       }
       #mapContainer {
-        width: 100%;
-        min-height: 250px;
-        height: 60vw;
-        max-height: 70vw;
+        width: 100vw;
+        min-width: 100vw;
+        margin-left: -1rem;
+        margin-right: -1rem;
+        /* Supprimer les marges du container sur mobile */
+        min-height: 60vh;
+        height: 80vh;
+        max-height: 100vh;
+        border-radius: 0;
       }
       #mapIMAGE,
       #overlay {
-        width: 100%;
-        height: auto;
-        max-width: 100%;
-        max-height: 100%;
+        width: 100vw;
+        min-width: 100vw;
+        max-width: 100vw;
+        height: 80vh;
+        min-height: 60vh;
+        max-height: 100vh;
+        object-fit: contain;
       }
       #zonePopup {
-        width: 96vw;
-        max-width: 320px;
-        height: auto;
-        max-height: 250px;
+        width: 98vw;
+        max-width: 330px;
+        max-height: 180px;
+      }
+      .container {
+        padding: 0.5rem 0;
       }
     }
 
     @media (max-width: 480px) {
       #mapContainer {
-        min-height: 160px;
-        height: 55vw;
-        max-height: 70vw;
+        min-height: 70vh;
+        height: 90vh;
+        max-height: 100vh;
+      }
+      #mapIMAGE,
+      #overlay {
+        height: 90vh;
+        min-height: 70vh;
+        max-height: 100vh;
       }
       #zonePopup {
         width: 98vw;
@@ -404,25 +414,17 @@
     let hotspots = [], hoverHotspot = null;
 
     function ajusterCanvas(){
-      // Adapter le canvas à l'image affichée (responsive !)
       const rect = imgEl.getBoundingClientRect();
-      // On prend la largeur réelle affichée de l'image
       canvas.width  = rect.width;
       canvas.height = rect.height;
       canvas.style.width  = rect.width+'px';
       canvas.style.height = rect.height+'px';
-      // Redessiner s'il y avait déjà une recherche
       if (hotspots.length > 0) {
         dessinerHotspots();
       }
     }
 
-    function dessinerHotspots() {
-      // Redessine l'animation s'il y a une recherche en cours après redimension
-      // (rejouer la recherche, ici on simplifie : on ne mémorise que le dernier hotspot)
-      // Appelée dans ajusterCanvas si besoin
-      // Cette fonction est remplacée par la fonction anim dans submit, donc rien à faire ici
-    }
+    function dessinerHotspots() {}
 
     window.addEventListener('resize', ajusterCanvas);
     imgEl.onload = ajusterCanvas;
@@ -444,7 +446,6 @@
       updateInfoPanel(best);
       const ctx = canvas.getContext('2d');
       hotspots = [];
-      // Calcul des ratios pour correspondance coord image/canvas responsive:
       const ratioX = canvas.width / imgEl.naturalWidth;
       const ratioY = canvas.height / imgEl.naturalHeight;
       const fpx = { x: from.x*ratioX,  y: from.y*ratioY };
@@ -495,7 +496,6 @@
           const src = zoneImages[h.zone];
           if(src){
             popup.src=src;
-            // Affichage popup, position intelligente (centré sur le point, mais visible)
             let px = h.x - popup.offsetWidth/2;
             let py = h.y - popup.offsetHeight - 10;
             if (isNaN(px) || px < 0) px = 5;
@@ -518,7 +518,6 @@
     canvas.addEventListener('click', e=>{
       if(!sel) return;
       const rect=canvas.getBoundingClientRect();
-      // Conversion coord écran -> coord image naturelle (pour la recherche du point le plus proche)
       const x=(e.clientX-rect.left)*(imgEl.naturalWidth/canvas.width);
       const y=(e.clientY-rect.top)*(imgEl.naturalHeight/canvas.height);
       let best, dmin=Infinity;
@@ -537,11 +536,9 @@
       }
     });
 
-    // Pour garantir la taille du canvas à chaque changement de taille d'image
     window.addEventListener('orientationchange', ajusterCanvas);
     window.addEventListener('resize', ajusterCanvas);
 
-    // Fix popup sur mobile après redimension
     window.addEventListener('resize', ()=>{
       if (popup.style.display==='block') popup.style.display='none';
     });
