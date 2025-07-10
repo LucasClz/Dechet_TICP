@@ -14,130 +14,93 @@
       --text-dark:    #333;
     }
     body {
-      margin: 0; padding: 0;
-      font-family: 'Roboto', sans-serif;
-      background: url('51ae36f2-f712-4167-af4d-7e792ec51443.png') center/cover no-repeat fixed;
-      color: var(--text-dark);
-      line-height: 1.4;
+      margin:0; padding:0;
+      font-family:'Roboto',sans-serif;
+      background:url('51ae36f2-f712-4167-af4d-7e792ec51443.png') center/cover no-repeat fixed;
+      color:var(--text-dark);
+      line-height:1.4;
     }
     .container {
-      max-width: 1400px; margin: 1rem auto; padding: 1rem;
-      background: rgba(255,255,255,0.85);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      border-radius: 8px;
+      max-width:1400px; margin:1rem auto; padding:1rem;
+      background:rgba(255,255,255,0.85);
+      box-shadow:0 4px 12px rgba(0,0,0,0.15);
+      border-radius:8px;
     }
-    header {
-      text-align: center; margin-bottom: 1rem;
-    }
-    header h1 {
-      font-size: 2rem; color: var(--sncf-purple); margin-bottom: 0.3rem;
-    }
-    header p {
-      font-size: 1rem; color: #555;
-    }
+    header { text-align:center; margin-bottom:1rem; }
+    header h1 { font-size:2rem; color:var(--sncf-purple); margin-bottom:.3rem; }
+    header p  { font-size:1rem; color:#555; }
     .search-panel {
-      background: #fff; padding: 1rem; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1rem;
+      background:#fff; padding:1rem; border-radius:6px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:1rem;
     }
     form {
-      display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+      display:flex; flex-wrap:wrap; gap:1rem; align-items:center;
     }
     .form-group {
-      flex: 1 1 180px; display: flex; flex-direction: column;
+      flex:1 1 180px; display:flex; flex-direction:column;
     }
-    .form-group label {
-      font-weight: 500; margin-bottom: 0.4rem;
+    .form-group label { font-weight:500; margin-bottom:.4rem; }
+    .choices__inner { min-height:2.5rem; }
+    button,#enableClickSelect,#enableGPS {
+      background:var(--sncf-magenta); color:#fff; border:none;
+      padding:.6rem 1.2rem; font-size:1rem; border-radius:4px;
+      cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+      transition:background .2s ease;
     }
-    .choices__inner {
-      min-height: 2.5rem;
+    button:hover,#enableClickSelect:hover,#enableGPS:hover {
+      background:var(--sncf-purple);
     }
-    button, #enableClickSelect, #enableGPS {
-      background: var(--sncf-magenta); color: #fff; border: none;
-      padding: 0.6rem 1.2rem; font-size: 1rem; border-radius: 4px;
-      cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      transition: background 0.2s ease;
-    }
-    button:hover, #enableClickSelect:hover, #enableGPS:hover {
-      background: var(--sncf-purple);
-    }
-    .main-content {
-      display: flex; gap: 1rem;
-    }
+    .main-content { display:flex; gap:1rem; }
     #mapContainer {
-      position: relative; flex: 1; background: var(--sncf-light);
-      border-radius: 6px; overflow: hidden; min-height: 500px;
+      position:relative; flex:1; background:var(--sncf-light);
+      border-radius:6px; overflow:hidden; min-height:500px;
     }
-    #mapImage {
-      width: 100%; display: block;
-    }
-    #overlay {
-      position: absolute; top: 0; left: 0;
-    }
+    #mapImage { width:100%; display:block; }
+    #overlay { position:absolute; top:0; left:0; }
     #zonePopup {
-      position: absolute; width: 80vw; max-width: 300px; height: auto;
-      max-height: 300px; object-fit: cover;
-      border: 3px solid var(--sncf-magenta); border-radius: 6px;
-      display: none; pointer-events: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2); background: #fff; z-index: 10;
+      position:absolute; width:80vw; max-width:300px; height:auto;
+      max-height:300px; object-fit:cover;
+      border:3px solid var(--sncf-magenta); border-radius:6px;
+      display:none; pointer-events:none;
+      box-shadow:0 4px 12px rgba(0,0,0,0.2); background:#fff; z-index:10;
     }
     #infoPanel {
-      width: 160px; background: #fff; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 0.75rem; font-size: 0.85rem; line-height: 1.2;
+      width:160px; background:#fff; border-radius:6px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);
+      padding:.75rem; font-size:.85rem; line-height:1.2;
     }
-    #infoPanel h2 {
-      font-size: 1rem; color: var(--sncf-magenta); margin-bottom: 0.5rem;
-    }
+    #infoPanel h2 { font-size:1rem; color:var(--sncf-magenta); margin-bottom:.5rem; }
     #dechetList {
-      list-style: disc inside; max-height: 10rem; overflow-y: auto;
-      margin: 0; padding: 0;
+      list-style:disc inside; max-height:10rem; overflow-y:auto;
+      margin:0; padding:0;
     }
-    #dechetList li {
-      margin-bottom: 0.25rem;
-    }
-    @media (max-width: 1020px) {
-      .main-content {
-        flex-direction: column;
-      }
+    #dechetList li { margin-bottom:.25rem; }
+    @media (max-width:1020px) {
+      .main-content { flex-direction:column; }
       #infoPanel {
-        width: 100%; margin-top: 1rem; max-height: 30vh; overflow-y: auto;
+        width:100%; margin-top:1rem; max-height:30vh; overflow-y:auto;
       }
-      #mapContainer {
-        height: 50vw; max-height: 60vw;
-      }
+      #mapContainer { height:50vw; max-height:60vw; }
     }
-    @media (max-width: 768px) {
-      header h1 { font-size: 1.5rem; }
-      header p  { font-size: 0.9rem; }
-      .search-panel form {
-        flex-direction: column;
-      }
-      .form-group {
-        flex: 1 1 100%;
-      }
-      .main-content {
-        flex-direction: column;
-      }
+    @media (max-width:768px) {
+      header h1 { font-size:1.5rem; } header p { font-size:.9rem; }
+      .search-panel form { flex-direction:column; }
+      .form-group { flex:1 1 100%; }
+      .main-content { flex-direction:column; }
       #mapContainer {
-        width: 100vw; height: 80vh; margin-left: -1rem; margin-right: -1rem; border-radius: 0;
+        width:100vw; height:80vh; margin:-1rem 0; border-radius:0;
       }
-      #mapImage, #overlay {
-        width: 100vw; height: 80vh;
+      #mapImage,#overlay {
+        width:100vw; height:80vh;
       }
       #zonePopup {
-        width: 98vw; max-width: 330px; max-height: 180px;
+        width:98vw; max-width:330px; max-height:180px;
       }
     }
-    @media (max-width: 480px) {
-      #mapContainer {
-        height: 90vh;
-      }
-      #mapImage, #overlay {
-        height: 90vh;
-      }
-      #zonePopup {
-        max-height: 180px;
-      }
+    @media (max-width:480px) {
+      #mapContainer { height:90vh; }
+      #mapImage,#overlay { height:90vh; }
+      #zonePopup { max-height:180px; }
     }
   </style>
 </head>
@@ -147,11 +110,10 @@
       <h1>Localisation des déchets</h1>
       <p>Utilisez le GPS et la boussole pour trouver la zone déchets la plus proche et votre orientation.</p>
     </header>
+
     <section class="search-panel">
       <form id="searchForm">
-        <div class="form-group">
-          <button type="button" id="enableClickSelect">Choisir sur la carte</button>
-        </div>
+        <div class="form-group"><button type="button" id="enableClickSelect">Choisir sur la carte</button></div>
         <div class="form-group">
           <label for="zoneSelect">Emplacement</label>
           <select id="zoneSelect" placeholder="Rechercher une zone"></select>
@@ -160,14 +122,11 @@
           <label for="dechetSelect">Déchet</label>
           <select id="dechetSelect" placeholder="Rechercher un déchet"></select>
         </div>
-        <div class="form-group">
-          <button type="button" id="enableGPS">Activer GPS + Boussole</button>
-        </div>
-        <div class="form-group">
-          <button type="submit">OK</button>
-        </div>
+        <div class="form-group"><button type="button" id="enableGPS">Activer GPS + Boussole</button></div>
+        <div class="form-group"><button type="submit">OK</button></div>
       </form>
     </section>
+
     <div class="main-content">
       <section id="mapContainer">
         <img id="mapImage" src="1.png" alt="Plan du site"/>
@@ -176,9 +135,7 @@
       </section>
       <aside id="infoPanel">
         <h2>Déchets</h2>
-        <ul id="dechetList">
-          <li>Aucune zone sélectionnée</li>
-        </ul>
+        <ul id="dechetList"><li>Aucune zone sélectionnée</li></ul>
       </aside>
     </div>
   </div>
@@ -187,30 +144,30 @@
   <script>
     // --- Données complètes des emplacements ---
     const coords = {
-      "MR5 Atelier2": { x:243, y:684 }, "MR15": { x:301, y:606 }, "MR13": { x:312, y:577 },
-      "MR6 Enduis et Peinture": { x:400, y:600 }, "MR13 Atelier 4": { x:392, y:648 }, "MR1": { x:392, y:704 },
-      "MR13 Atelier5": { x:461, y:728 }, "MR5 Atelier23": { x:369, y:763 }, "MR3 Voie 35D": { x:552, y:554 },
-      "MR6 KD Lavage": { x:536, y:505 }, "MR4 Atelier6": { x:854, y:419 }, "BUMR": { x:790, y:460 },
-      "MR2 - MR13": { x:680, y:665 }, "MR2 Porte": { x:665, y:711 }, "MR2 Fenêtre": { x:670, y:747 },
-      "MR2 Etabli": { x:738, y:747 }, "MR3": { x:774, y:659 }, "MR2 HUB": { x:852, y:685 },
-      "MR7 Peinture + ponçage": { x:953, y:607 }, "MR7 préparation": { x:934, y:749 }, "CABOUT": { x:1034, y:688 },
-      "PRM11": { x:1028, y:745 }, "PRM4": { x:1189, y:747 }, "PRM5 Compresseur": { x:1258, y:692 },
-      "PRM10 Rechauffeur": { x:1325, y:678 }, "PRM1 MVT": { x:1321, y:740 }, "PRM3": { x:1336, y:532 },
-      "PRM2": { x:1322, y:428 }, "PRM7 Atelier12": { x:1280, y:345 }, "PRM6 CAPA": { x:1203, y:331 },
-      "PRM6 Blow WC": { x:1496, y:730 }, "PRM6 Pièces sanitaire": { x:1474, y:665 }, "PRM6 Lavage": { x:1468, y:608 },
-      "SC2 Amont CT10": { x:1452, y:490 }, "SC2 Magasin": { x:1596, y:499 }, "SC2 Réception": { x:1527, y:420 },
-      "SC Kitting": { x:1534, y:355 }, "MR8 Grenailleuse": { x:1504, y:249 }, "Bogies": { x:1670, y:287 },
-      "MABOR": { x:1804, y:282 }, "PRM8": { x:1732, y:733 },
-      "Z1": { x:1875, y:584 }, "Z2": { x:1814, y:755 }, "Z3": { x:1768, y:366 }, "Z4": { x:1634, y:379 },
-      "Z5": { x:1602, y:182 }, "Z6": { x:1416, y:382 }, "Z7": { x:1529, y:492 }, "Z8": { x:1415, y:448 },
-      "Z9": { x:1419, y:617 }, "Z10": { x:1590, y:676 }, "Z11": { x:1415, y:734 }, "Z12": { x:1205, y:204 },
-      "Z13": { x:1285, y:412 }, "Z14": { x:1111, y:371 }, "Z15": { x:1200, y:603 }, "Z16": { x:1026, y:620 },
-      "Z17": { x:1122, y:644 }, "Z18": { x:1048, y:544 }, "Z19": { x:921, y:329 }, "Z20": { x:834, y:378 },
-      "Z21": { x:710, y:415 }, "Z22": { x:704, y:600 }, "Z23": { x:865, y:608 }, "Z24": { x:735, y:714 },
-      "Z25": { x:965, y:728 }, "Z26": { x:785, y:791 }, "Z27": { x:602, y:788 }, "Z28": { x:478, y:433 },
-      "Z29": { x:442, y:511 }, "Z30": { x:317, y:547 }, "Z31": { x:212, y:600 }, "Z32": { x:1156, y:738 },
-      "Z33": { x:292, y:689 }, "Z34": { x:511, y:685 }, "Z35": { x:1534, y:329 }, "Z36": { x:1119, y:598 },
-      "Bureau Administratif": { x:1524, y:152 }
+      "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+      "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+      "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+      "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+      "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+      "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+      "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+      "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+      "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+      "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+      "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+      "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+      "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+      "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+      "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+      "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+      "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+      "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+      "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+      "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+      "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+      "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+      "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
+      "Bureau Administratif":{x:1524,y:152}
     };
 
     // --- Déchets par zone ---
@@ -235,7 +192,7 @@
       Z18:["Bois","Carton","Ferreux","Non ferreux","Bac noir","Bac jaune","Verre","Déchets non dangereux"],
       Z19:["Bac noir"],
       Z20:["Ferreux","Non ferreux","Geobox Déchets dangereux","Bois","Carton","Plastique","Bac plomb"],
-      Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
+      Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geebox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
       Z22:["Geobox Déchets dangereux","Fût peinture"],
       Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
       Z24:["Caoutchouc","Pélican","Verre"],
@@ -260,43 +217,43 @@
       Z29:'Zone 29.jpg', Z30:'Zone 30.jpg', Z34:'Zone 34.jpg'
     };
 
-    // === Choices.js init ===
+    // === Initialisation Choices.js ===
     const choicesZone   = new Choices(document.getElementById('zoneSelect'), {
-      searchEnabled: true, shouldSort: false, itemSelectText: '', placeholderValue: 'Rechercher une zone…'
-    });
+      searchEnabled:true, shouldSort:false, itemSelectText:'', placeholderValue:'Rechercher une zone…'
+    }); 
     const choicesDechet = new Choices(document.getElementById('dechetSelect'), {
-      searchEnabled: true, shouldSort: true,  itemSelectText: '', placeholderValue: 'Rechercher un déchet…'
+      searchEnabled:true, shouldSort:true, itemSelectText:'', placeholderValue:'Rechercher un déchet…'
     });
 
     function updateInfoPanel(zone) {
       const list = document.getElementById('dechetList');
       list.innerHTML = '';
-      (dechetsParZone[zone] || []).sort().forEach(t => {
+      (dechetsParZone[zone]||[]).sort().forEach(t=>{
         const li = document.createElement('li');
         li.textContent = t;
         list.appendChild(li);
       });
-      if (!(dechetsParZone[zone] || []).length) {
+      if (!(dechetsParZone[zone]||[]).length) {
         list.innerHTML = '<li>Aucun déchet</li>';
       }
     }
 
-    // Remplissage des sélecteurs
-    Object.keys(coords).filter(z => !z.startsWith('Z')).forEach(z => {
-      choicesZone.setChoices([{ value: z, label: z }], 'value','label', false);
+    // Remplissage sélecteurs
+    Object.keys(coords).filter(z=>!z.startsWith('Z')).forEach(z=>{
+      choicesZone.setChoices([{value:z,label:z}], 'value','label', false);
     });
     const allTypes = Array.from(new Set(Object.values(dechetsParZone).flat())).sort();
-    allTypes.forEach(t => {
-      choicesDechet.setChoices([{ value: t, label: t }], 'value','label', false);
+    allTypes.forEach(t=>{
+      choicesDechet.setChoices([{value:t,label:t}], 'value','label', false);
     });
-    document.getElementById('zoneSelect').addEventListener('change', e => {
+    document.getElementById('zoneSelect').addEventListener('change', e=>{
       updateInfoPanel(e.target.value);
-      const types = dechetsParZone[e.target.value] || allTypes;
+      const types = dechetsParZone[e.target.value]||allTypes;
       choicesDechet.clearChoices();
-      types.forEach(t => choicesDechet.setChoices([{ value: t, label: t }], 'value','label', false));
+      types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
     });
 
-    // === Canvas / tracé itinéraire & popup ===
+    // === Canvas/tracé/popup ===
     const canvasEl = document.getElementById('overlay'),
           ctx2     = canvasEl.getContext('2d'),
           imgEl2   = document.getElementById('mapImage'),
@@ -309,183 +266,172 @@
     }
     window.addEventListener('resize', ajusterCanvas);
     imgEl2.onload = ajusterCanvas;
-    window.onload = ajusterCanvas;
+    window.onload    = ajusterCanvas;
 
-    document.getElementById('searchForm').addEventListener('submit', e => {
+    document.getElementById('searchForm').addEventListener('submit', e=>{
       e.preventDefault();
       const dep = document.getElementById('zoneSelect').value;
       const wanted = document.getElementById('dechetSelect').value.toLowerCase();
-      let best = null, dmin = Infinity;
+      let best=null, dmin=Infinity;
       const from = coords[dep];
-      for (let z in dechetsParZone) {
-        if (dechetsParZone[z].some(x => x.toLowerCase() === wanted)) {
-          const to = coords[z];
-          const d = Math.hypot(to.x - from.x, to.y - from.y);
-          if (d < dmin) { dmin = d; best = z; }
+      for(let z in dechetsParZone){
+        if(dechetsParZone[z].some(x=>x.toLowerCase()===wanted)){
+          const to=coords[z], d=Math.hypot(to.x-from.x,to.y-from.y);
+          if(d<dmin){dmin=d;best=z;}
         }
       }
-      if (!best) return alert("Aucune zone pour ce déchet");
+      if(!best) return alert("Aucune zone pour ce déchet");
       updateInfoPanel(best);
-      hotspots = [];
-      const rx = canvasEl.width / imgEl2.naturalWidth,
-            ry = canvasEl.height / imgEl2.naturalHeight;
-      const p0 = { x: from.x * rx, y: from.y * ry },
-            p1 = { x: coords[best].x * rx, y: coords[best].y * ry };
-      hotspots.push({ x: p1.x, y: p1.y, r: 12, zone: best });
-      let r = 10, growing = true;
+      hotspots=[]; let r=10, growing=true;
+      const rx=canvasEl.width/imgEl2.naturalWidth, ry=canvasEl.height/imgEl2.naturalHeight;
+      const p0={x:from.x*rx,y:from.y*ry}, p1={x:coords[best].x*rx,y:coords[best].y*ry};
+      hotspots.push({x:p1.x,y:p1.y,r:12,zone:best});
       (function anim(){
         ctx2.clearRect(0,0,canvasEl.width,canvasEl.height);
-        ctx2.save();
-        ctx2.beginPath();
-        ctx2.moveTo(p0.x,p0.y);
-        ctx2.lineTo(p1.x,p1.y);
-        ctx2.setLineDash([10,6]);
-        ctx2.lineWidth = 4;
-        ctx2.strokeStyle = `rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
-        ctx2.stroke();
-        ctx2.restore();
+        // tracer ligne
+        ctx2.save(); ctx2.beginPath(); ctx2.moveTo(p0.x,p0.y); ctx2.lineTo(p1.x,p1.y);
+        ctx2.setLineDash([10,6]); ctx2.lineWidth=4;
+        ctx2.strokeStyle=`rgba(0,0,255,${0.3+0.7*(r-10)/5})`; ctx2.stroke(); ctx2.restore();
+        // tracer cercles
         [{p:p0,color:'red'},{p:p1,color:'green'}].forEach(o=>{
-          ctx2.beginPath();
-          ctx2.arc(o.p.x,o.p.y,r,0,2*Math.PI);
-          ctx2.strokeStyle = o.color;
-          ctx2.lineWidth = 3;
-          ctx2.stroke();
+          ctx2.beginPath(); ctx2.arc(o.p.x,o.p.y,r,0,2*Math.PI);
+          ctx2.strokeStyle=o.color; ctx2.lineWidth=3; ctx2.stroke();
         });
-        if (hoverHotspot) {
-          ctx2.save();
-          ctx2.beginPath();
+        // hover
+        if(hoverHotspot){
+          ctx2.save(); ctx2.beginPath();
           ctx2.arc(hoverHotspot.x,hoverHotspot.y,hoverHotspot.r+5,0,2*Math.PI);
-          ctx2.fillStyle='rgba(255,255,0,0.3)';
-          ctx2.fill();
-          ctx2.restore();
+          ctx2.fillStyle='rgba(255,255,0,0.3)';	ctx2.fill(); ctx2.restore();
         }
-        r += growing ? 0.3 : -0.3;
-        if (r>=15 || r<=10) growing = !growing;
+        r += growing?0.3:-0.3; if(r>=15||r<=10) growing=!growing;
         requestAnimationFrame(anim);
       })();
     });
 
-    canvasEl.addEventListener('mousemove', e => {
-      const rect = canvasEl.getBoundingClientRect(),
-            x = e.clientX - rect.left,
-            y = e.clientY - rect.top;
-      hoverHotspot = null;
-      hotspots.forEach(h => {
-        if (Math.hypot(h.x-x, h.y-y) <= h.r+5) hoverHotspot = h;
-      });
+    canvasEl.addEventListener('mousemove', e=>{
+      const rect=canvasEl.getBoundingClientRect(), x=e.clientX-rect.left, y=e.clientY-rect.top;
+      hoverHotspot=null; hotspots.forEach(h=>{ if(Math.hypot(h.x-x,h.y-y)<=h.r+5) hoverHotspot=h; });
     });
-    canvasEl.addEventListener('mouseleave', () => hoverHotspot = null);
-    canvasEl.addEventListener('click', e => {
-      const rect = canvasEl.getBoundingClientRect(),
-            x = e.clientX - rect.left,
-            y = e.clientY - rect.top;
-      for (let h of hotspots) {
-        if (Math.hypot(h.x-x, h.y-y) <= h.r) {
-          const src = zoneImages[h.zone];
-          if (src) {
-            popupEl.src = src;
-            popupEl.style.left = `${h.x - 150}px`;
-            popupEl.style.top  = `${h.y - 310}px`;
-            popupEl.style.display = 'block';
+    canvasEl.addEventListener('mouseleave', ()=>hoverHotspot=null);
+    canvasEl.addEventListener('click', e=>{
+      const rect=canvasEl.getBoundingClientRect(), x=e.clientX-rect.left, y=e.clientY-rect.top;
+      for(let h of hotspots){
+        if(Math.hypot(h.x-x,h.y-y)<=h.r){
+          const src=zoneImages[h.zone];
+          if(src){
+            popupEl.src=src;
+            popupEl.style.left=`${h.x-150}px`; popupEl.style.top=`${h.y-310}px`;
+            popupEl.style.display='block';
           }
           return;
         }
       }
-      popupEl.style.display = 'none';
+      popupEl.style.display='none';
     });
 
     // sélection par clic
-    let sel = false;
+    let sel=false;
     document.getElementById('enableClickSelect').addEventListener('click', ()=>{
-      sel = !sel;
-      document.getElementById('enableClickSelect').textContent = sel ? 'Cliquez…' : 'Choisir sur la carte';
+      sel=!sel;
+      document.getElementById('enableClickSelect').textContent = sel?'Cliquez…':'Choisir sur la carte';
     });
     canvasEl.addEventListener('click', e=>{
-      if (!sel) return;
-      const rect = canvasEl.getBoundingClientRect(),
-            x = (e.clientX-rect.left)*(imgEl2.naturalWidth/canvasEl.width),
-            y = (e.clientY-rect.top)*(imgEl2.naturalHeight/canvasEl.height);
-      let best, dmin=Infinity;
-      Object.keys(coords).forEach(n => {
-        if (!n.startsWith('Z')) {
-          const c = coords[n],
-                d = Math.hypot(c.x - x, c.y - y);
-          if (d < dmin) { dmin = d; best = n; }
+      if(!sel) return;
+      const rect=canvasEl.getBoundingClientRect();
+      const x=(e.clientX-rect.left)*(imgEl2.naturalWidth/canvasEl.width);
+      const y=(e.clientY-rect.top)*(imgEl2.naturalHeight/canvasEl.height);
+      let best,dmin=Infinity;
+      Object.keys(coords).forEach(n=>{
+        if(!n.startsWith('Z')){
+          const c=coords[n], d=Math.hypot(c.x-x,c.y-y);
+          if(d<dmin){dmin=d;best=n;}
         }
       });
-      if (best) {
+      if(best){
         choicesZone.setChoiceByValue(best);
         document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
-        sel = false;
-        document.getElementById('enableClickSelect').textContent = 'Choisir sur la carte';
+        sel=false;
+        document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
       }
     });
 
-    // === GPS + boussole ===
-    let calibration = [];
-    function addCalibration(lat,lon,x,y) {
-      calibration.push({ lat, lon, x, y });
-    }
-    addCalibration(45.19291, 0.70595, coords["Bureau Administratif"].x, coords["Bureau Administratif"].y);
-    addCalibration(45.19273, 0.70554, coords["MR8 Grenailleuse"].x, coords["MR8 Grenailleuse"].y);
+    // --- GPS + boussole & zone la plus proche ---
+    let calibration=[];
+    function addCalibration(lat,lon,x,y){ calibration.push({lat,lon,x,y}); }
+    addCalibration(45.19291,0.70595,coords["Bureau Administratif"].x,coords["Bureau Administratif"].y);
+    addCalibration(45.19273,0.70554,coords["MR8 Grenailleuse"].x,coords["MR8 Grenailleuse"].y);
 
     function gpsToPixel(lat,lon){
-      if (calibration.length < 2) return null;
-      const [p1,p2] = calibration;
-      const dx = p2.x - p1.x, dy = p2.y - p1.y;
-      const dLat = p2.lat - p1.lat, dLon = p2.lon - p1.lon;
-      const sx = dx / dLon, sy = dy / dLat;
-      return { x: p1.x + (lon - p1.lon)*sx, y: p1.y + (lat - p1.lat)*sy };
+      if(calibration.length<2) return null;
+      const [p1,p2]=calibration;
+      const dx=p2.x-p1.x, dy=p2.y-p1.y;
+      const dLat=p2.lat-p1.lat, dLon=p2.lon-p1.lon;
+      const sx=dx/dLon, sy=dy/dLat;
+      return { x:p1.x+(lon-p1.lon)*sx, y:p1.y+(lat-p1.lat)*sy };
     }
 
-    let userPos = null, gpsOn = false, heading = null;
-    function handleOrient(e){ heading = e.alpha; }
-    if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
-      DeviceOrientationEvent.requestPermission().then(res => {
-        if (res === 'granted') window.addEventListener('deviceorientation', handleOrient);
+    let userPos=null, gpsOn=false, heading=null;
+    function handleOrient(e){ heading=e.alpha; }
+    if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted') window.addEventListener('deviceorientation',handleOrient);
       }).catch(()=>{});
     } else {
-      window.addEventListener('deviceorientation', handleOrient);
+      window.addEventListener('deviceorientation',handleOrient);
     }
 
     document.getElementById('enableGPS').addEventListener('click', ()=>{
-      gpsOn = !gpsOn;
-      document.getElementById('enableGPS').textContent = gpsOn ? 'Désactiver GPS' : 'Activer GPS + Boussole';
-      if (gpsOn) {
-        if (!navigator.geolocation) return alert('GPS non disponible');
-        navigator.geolocation.watchPosition(pos => {
-          userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
-          // recherche zone Z la plus proche
-          let bz = null, mn = Infinity;
+      gpsOn=!gpsOn;
+      document.getElementById('enableGPS').textContent = gpsOn?'Désactiver GPS':'Activer GPS + Boussole';
+      if(gpsOn){
+        if(!navigator.geolocation) return alert('GPS non disponible');
+        navigator.geolocation.watchPosition(pos=>{
+          userPos = gpsToPixel(pos.coords.latitude,pos.coords.longitude);
+          // zone la plus proche
+          let bz=null, mn=Infinity;
           Object.keys(coords).filter(z=>z.startsWith('Z')).forEach(z=>{
-            const c = coords[z];
-            const d = Math.hypot(c.x - userPos.x, c.y - userPos.y);
-            if (d < mn) { mn = d; bz = z; }
+            const c=coords[z];
+            const d=Math.hypot(c.x-userPos.x,c.y-userPos.y);
+            if(d<mn){mn=d;bz=z;}
           });
-          if (bz) {
+          if(bz){
             choicesZone.setChoiceByValue(bz);
             document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
           }
-        }, err => alert('Erreur GPS : ' + err.message), { enableHighAccuracy: true });
+        },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
       } else {
-        userPos = null;
+        userPos=null;
       }
     });
 
     function drawUser(){
-      if (!userPos) return;
+      if(!userPos) return;
       ajusterCanvas();
-      const rx = canvasEl.width / imgEl2.naturalWidth,
-            ry = canvasEl.height / imgEl2.naturalHeight;
-      const x = userPos.x * rx, y = userPos.y * ry;
+      const rx=canvasEl.width/imgEl2.naturalWidth,
+            ry=canvasEl.height/imgEl2.naturalHeight;
+      const x=userPos.x*rx, y=userPos.y*ry;
+      // dessiner cône d'orientation (60° FOV, longueur 100px)
+      if(heading!=null){
+        const ang = (heading*Math.PI/180) - Math.PI/2;
+        const fov = Math.PI/3; 
+        const len = 100;
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.moveTo(x,y);
+        ctx2.arc(x,y,len, ang - fov/2, ang + fov/2);
+        ctx2.closePath();
+        ctx2.fillStyle = 'rgba(0,0,255,0.2)';
+        ctx2.fill();
+        ctx2.restore();
+      }
       // rond vert
       ctx2.beginPath();
-      ctx2.arc(x, y, 10, 0, 2*Math.PI);
-      ctx2.fillStyle = 'rgba(0,255,0,0.6)'; ctx2.fill();
-      ctx2.strokeStyle = 'green'; ctx2.stroke();
-      // flèche orientation
-      if (heading != null) {
-        const ang = (heading * Math.PI / 180) - Math.PI/2;
+      ctx2.arc(x,y,10,0,2*Math.PI);
+      ctx2.fillStyle='rgba(0,255,0,0.6)'; ctx2.fill();
+      ctx2.strokeStyle='green'; ctx2.stroke();
+      // flèche bleue
+      if(heading!=null){
+        const ang = (heading*Math.PI/180) - Math.PI/2;
         ctx2.save();
         ctx2.translate(x,y);
         ctx2.rotate(ang);
@@ -494,14 +440,14 @@
         ctx2.lineTo(-6,-5);
         ctx2.lineTo(6,-5);
         ctx2.closePath();
-        ctx2.fillStyle = 'blue'; ctx2.fill();
+        ctx2.fillStyle='blue'; ctx2.fill();
         ctx2.restore();
       }
     }
 
     setInterval(()=>{
-      if (gpsOn) drawUser();
-    }, 1000);
+      if(gpsOn) drawUser();
+    },1000);
   </script>
 </body>
 </html>
