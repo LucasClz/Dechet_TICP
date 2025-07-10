@@ -368,17 +368,15 @@
     }
 
     let userPos=null, gpsOn=false, heading=null;
+    let orientationListenerAdded = false;
+
+    // ------------------ SEULE PARTIE MODIFIÉE POUR L'ORIENTATION ! -----------------
     function handleOrient(e){
-      if(gpsOn){
-        heading=e.alpha;
+      if (typeof e.webkitCompassHeading !== "undefined") {
+        heading = e.webkitCompassHeading;
+      } else if (typeof e.alpha !== "undefined") {
+        heading = e.alpha;
       }
-    }
-    if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){
-      DeviceOrientationEvent.requestPermission().then(res=>{
-        if(res==='granted') window.addEventListener('deviceorientation',handleOrient);
-      }).catch(()=>{});
-    } else {
-      window.addEventListener('deviceorientation',handleOrient);
     }
 
     document.getElementById('enableGPS').addEventListener('click', ()=>{
@@ -399,11 +397,29 @@
             document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
           }
         },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
+
+        // Demande d'accès à la boussole/gyroscope uniquement ici
+        if (!orientationListenerAdded) {
+          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission().then(res=>{
+              if(res==='granted') {
+                window.addEventListener('deviceorientation', handleOrient, true);
+                orientationListenerAdded = true;
+              } else {
+                alert("Accès à la boussole refusé");
+              }
+            }).catch(()=>{ alert("Impossible d'accéder à la boussole"); });
+          } else {
+            window.addEventListener('deviceorientation', handleOrient, true);
+            orientationListenerAdded = true;
+          }
+        }
       } else {
         userPos=null;
         heading=null;
       }
     });
+    // -----------------------------------------------------------------------------
 
     function drawUser(){
       if(!userPos) return;
@@ -412,7 +428,7 @@
             ry=canvasEl.height/imgEl2.naturalHeight;
       const x=userPos.x*rx, y=userPos.y*ry;
       if(heading!=null){
-        const ang=(heading*Math.PI/180)-Math.PI/2;
+        let ang=(heading*Math.PI/180)-Math.PI/2;
         const fov=Math.PI/3, len=100;
         ctx2.save();
         ctx2.beginPath();
@@ -428,7 +444,7 @@
       ctx2.fillStyle='rgba(0,255,0,0.6)'; ctx2.fill();
       ctx2.strokeStyle='green'; ctx2.stroke();
       if(heading!=null){
-        const ang=(heading*Math.PI/180)-Math.PI/2;
+        let ang=(heading*Math.PI/180)-Math.PI/2;
         ctx2.save();
         ctx2.translate(x,y);
         ctx2.rotate(ang);
