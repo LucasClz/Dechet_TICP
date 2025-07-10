@@ -103,8 +103,14 @@
       overflow: hidden;
       min-height: 500px;
     }
-    #mapIMAGE { width: 100%; display: block; }
-    #overlay  { position: absolute; top: 0; left: 0; }
+    #mapImage {
+      width: 100%;
+      display: block;
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+    }
 
     /* ==== Panneau latéral ==== */
     #infoPanel {
@@ -223,9 +229,10 @@
         </div>
       </form>
     </section>
+
     <div class="main-content">
       <section id="mapContainer">
-        <img id="mapIMAGE" src="1.png" alt="Plan du site"/>
+        <img id="mapImage" src="1.png" alt="Plan du site"/>
         <canvas id="overlay"></canvas>
         <img id="zonePopup" src="" alt="Zone déchets"/>
       </section>
@@ -238,7 +245,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
   <script>
-    // --- données complètes coords + Bureau Administratif ajouté ---
+    // --- Données complètes des emplacements ---
     const coords = {
       "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
       "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
@@ -266,9 +273,9 @@
       "Bureau Administratif":{x:1524,y:152}
     };
 
-    // --- déchets par zone complets ---
+    // --- Déchets par zone complets ---
     const dechetsParZone = {
-      Z1:["Bois","Carton","Bacul noir","Plastique"],
+      Z1:["Bois","Carton","Bac noir","Plastique"],
       Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
       Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosol","Pélican","Huile usagées"],
       Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
@@ -305,15 +312,23 @@
       Z35:["Bac noir","Bac jaune","Plastique","Carton"]
     };
 
-    // --- images popup par zone ---
+    // --- Images popup par zone ---
     const zoneImages = {
-      Z5:'Zone 5.jpg',Z12:'Zone 12.jpg',Z14:'Zone 14.jpg',
-      Z16:'Zone 16.jpg',Z18:'Zone 18.jpg',Z23:'Zone 23.jpg',
-      Z24:'Zone 24.jpg',Z25:'Zone 25.jpg',Z27:'Zone 27.jpg',
-      Z29:'Zone 29.jpg',Z30:'Zone 30.jpg',Z34:'Zone 34.jpg'
+      Z5:  'Zone 5.jpg',
+      Z12: 'Zone 12.jpg',
+      Z14: 'Zone 14.jpg',
+      Z16: 'Zone 16.jpg',
+      Z18: 'Zone 18.jpg',
+      Z23: 'Zone 23.jpg',
+      Z24: 'Zone 24.jpg',
+      Z25: 'Zone 25.jpg',
+      Z27: 'Zone 27.jpg',
+      Z29: 'Zone 29.jpg',
+      Z30: 'Zone 30.jpg',
+      Z34: 'Zone 34.jpg'
     };
 
-    // === Choices.js init ===
+    // === Initialisation Choices.js ===
     const choicesZone   = new Choices(document.getElementById('zoneSelect'), {
       searchEnabled: true, shouldSort: false, itemSelectText: '', placeholderValue: 'Rechercher une zone…'
     });
@@ -321,11 +336,25 @@
       searchEnabled: true, shouldSort: true,  itemSelectText: '', placeholderValue: 'Rechercher un déchet…'
     });
 
-    // Remplissage et panel info
+    // Remplissage des sélecteurs
+    Object.keys(coords).filter(z => !z.startsWith('Z')).forEach(z => {
+      choicesZone.setChoices([{ value: z, label: z }], 'value','label', false);
+    });
+    const allTypes = Array.from(new Set(Object.values(dechetsParZone).flat())).sort();
+    allTypes.forEach(t => {
+      choicesDechet.setChoices([{ value: t, label: t }], 'value','label', false);
+    });
+    document.getElementById('zoneSelect').addEventListener('change', e => {
+      updateInfoPanel(e.target.value);
+      const types = dechetsParZone[e.target.value] || allTypes;
+      choicesDechet.clearChoices();
+      types.forEach(t => choicesDechet.setChoices([{ value: t, label: t }], 'value','label', false));
+    });
+
     function updateInfoPanel(zone) {
       const list = document.getElementById('dechetList');
       list.innerHTML = '';
-      (dechetsParZone[zone]||[]).sort().forEach(t=>{
+      (dechetsParZone[zone]||[]).sort().forEach(t => {
         const li = document.createElement('li');
         li.textContent = t;
         list.appendChild(li);
@@ -334,28 +363,15 @@
         list.innerHTML = '<li>Aucun déchet</li>';
       }
     }
-    Object.keys(coords).filter(z=>!z.startsWith('Z')).forEach(z=>{
-      choicesZone.setChoices([{value:z,label:z}], 'value','label', false);
-    });
-    const allTypes = Array.from(new Set(Object.values(dechetsParZone).flat())).sort();
-    allTypes.forEach(t=>{
-      choicesDechet.setChoices([{value:t,label:t}], 'value','label', false);
-    });
-    document.getElementById('zoneSelect').addEventListener('change', ()=>{
-      updateInfoPanel(document.getElementById('zoneSelect').value);
-      const types = dechetsParZone[document.getElementById('zoneSelect').value]||allTypes;
-      choicesDechet.clearChoices();
-      types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
-    });
 
-    // === Canvas / tracé / popup ===
+    // === Canvas / tracé itinéraire & popup ===
     const canvasEl = document.getElementById('overlay');
     const ctx2     = canvasEl.getContext('2d');
-    const imgEl2   = document.getElementById('mapIMAGE');
+    const imgEl2   = document.getElementById('mapImage');
     const popupEl  = document.getElementById('zonePopup');
     let hotspots = [], hoverHotspot = null;
 
-    function ajusterCanvas(){
+    function ajusterCanvas() {
       canvasEl.width  = imgEl2.clientWidth;
       canvasEl.height = imgEl2.clientHeight;
     }
@@ -363,133 +379,165 @@
     imgEl2.onload = ajusterCanvas;
     window.onload    = ajusterCanvas;
 
-    document.getElementById('searchForm').addEventListener('submit', e=>{
+    document.getElementById('searchForm').addEventListener('submit', e => {
       e.preventDefault();
       const dep = document.getElementById('zoneSelect').value;
       const wanted = document.getElementById('dechetSelect').value.toLowerCase();
-      let best=null, dmin=Infinity;
+      let best = null, dmin = Infinity;
       const from = coords[dep];
-      for(let z in dechetsParZone){
-        if(dechetsParZone[z].some(x=>x.toLowerCase()===wanted)){
-          const to=coords[z], d=Math.hypot(to.x-from.x,to.y-from.y);
-          if(d<dmin){dmin=d;best=z;}
+      for (let z in dechetsParZone) {
+        if (dechetsParZone[z].some(x => x.toLowerCase() === wanted)) {
+          const to = coords[z];
+          const d = Math.hypot(to.x - from.x, to.y - from.y);
+          if (d < dmin) { dmin = d; best = z; }
         }
       }
-      if(!best) return alert("Aucune zone pour ce déchet");
+      if (!best) return alert("Aucune zone pour ce déchet");
       updateInfoPanel(best);
-      hotspots=[]; let r=10, growing=true;
-      const ratioX=canvasEl.width/imgEl2.naturalWidth, ratioY=canvasEl.height/imgEl2.naturalHeight;
-      const fpx={x:from.x*ratioX,y:from.y*ratioY}, tpx={x:coords[best].x*ratioX,y:coords[best].y*ratioY};
-      hotspots.push({x:tpx.x,y:tpx.y,r:12,zone:best});
-      (function anim(){
+      // dessin itinéraire
+      hotspots = [];
+      const rXY = { x: canvasEl.width / imgEl2.naturalWidth, y: canvasEl.height / imgEl2.naturalHeight };
+      const fpx = { x: from.x * rXY.x, y: from.y * rXY.y };
+      const t   = coords[best];
+      const tpx = { x: t.x * rXY.x, y: t.y * rXY.y };
+      hotspots.push({ x: tpx.x, y: tpx.y, r: 12, zone: best });
+      let r = 10, growing = true;
+      (function anim() {
         ctx2.clearRect(0,0,canvasEl.width,canvasEl.height);
-        ctx2.save(); ctx2.beginPath();
+        ctx2.save();
+        ctx2.beginPath();
         ctx2.moveTo(fpx.x,fpx.y); ctx2.lineTo(tpx.x,tpx.y);
-        ctx2.strokeStyle=`rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
-        ctx2.lineWidth=4; ctx2.setLineDash([10,6]); ctx2.stroke(); ctx2.restore();
+        ctx2.setLineDash([10,6]); ctx2.lineWidth=4;
+        ctx2.strokeStyle = `rgba(0,0,255,${0.3+0.7*(r-10)/5})`;
+        ctx2.stroke(); ctx2.restore();
         [{p:fpx,color:'red'},{p:tpx,color:'green'}].forEach(o=>{
-          ctx2.beginPath(); ctx2.arc(o.p.x,o.p.y,r,0,2*Math.PI);
-          ctx2.strokeStyle=o.color; ctx2.lineWidth=3; ctx2.stroke();
+          ctx2.beginPath();
+          ctx2.arc(o.p.x,o.p.y,r,0,2*Math.PI);
+          ctx2.strokeStyle = o.color; ctx2.lineWidth = 3; ctx2.stroke();
         });
-        if(hoverHotspot){
-          ctx2.save(); ctx2.beginPath();
+        if (hoverHotspot) {
+          ctx2.save();
+          ctx2.beginPath();
           ctx2.arc(hoverHotspot.x,hoverHotspot.y,hoverHotspot.r+5,0,2*Math.PI);
           ctx2.fillStyle='rgba(255,255,0,0.3)'; ctx2.fill(); ctx2.restore();
         }
-        r += growing?0.3:-0.3; if(r>=15||r<=10) growing=!growing;
+        r += growing?0.3:-0.3; if (r>=15||r<=10) growing=!growing;
         requestAnimationFrame(anim);
       })();
     });
 
     canvasEl.addEventListener('mousemove', e=>{
-      const rect=canvasEl.getBoundingClientRect(), x=e.clientX-rect.left, y=e.clientY-rect.top;
-      hoverHotspot=null;
-      hotspots.forEach(h=>{ if(Math.hypot(h.x-x,h.y-y)<=h.r+5) hoverHotspot=h; });
+      const rect = canvasEl.getBoundingClientRect();
+      const x = e.clientX-rect.left, y = e.clientY-rect.top;
+      hoverHotspot = null;
+      hotspots.forEach(h=>{
+        if (Math.hypot(h.x-x,h.y-y) <= h.r+5) hoverHotspot = h;
+      });
     });
-    canvasEl.addEventListener('mouseleave',()=>hoverHotspot=null);
+    canvasEl.addEventListener('mouseleave', ()=>hoverHotspot = null);
     canvasEl.addEventListener('click', e=>{
-      const rect=canvasEl.getBoundingClientRect(), x=e.clientX-rect.left, y=e.clientY-rect.top;
-      for(let h of hotspots){
-        if(Math.hypot(h.x-x,h.y-y)<=h.r){
-          const src=zoneImages[h.zone];
-          if(src){
-            popupEl.src=src;
-            popupEl.style.left=`${h.x-150}px`;
-            popupEl.style.top =`${h.y-310}px`;
-            popupEl.style.display='block';
+      const rect = canvasEl.getBoundingClientRect();
+      const x = e.clientX-rect.left, y = e.clientY-rect.top;
+      for (let h of hotspots) {
+        if (Math.hypot(h.x-x,h.y-y) <= h.r) {
+          const src = zoneImages[h.zone];
+          if (src) {
+            popupEl.src = src;
+            popupEl.style.left = `${h.x-150}px`;
+            popupEl.style.top  = `${h.y-310}px`;
+            popupEl.style.display = 'block';
           }
           return;
         }
       }
-      popupEl.style.display='none';
+      popupEl.style.display = 'none';
     });
 
     // sélection par clic
-    let sel=false;
-    document.getElementById('enableClickSelect').addEventListener('click',()=>{
-      sel=!sel;
+    let sel = false;
+    document.getElementById('enableClickSelect').addEventListener('click', ()=>{
+      sel = !sel;
       document.getElementById('enableClickSelect').textContent = sel?'Cliquez…':'Choisir sur la carte';
     });
     canvasEl.addEventListener('click', e=>{
-      if(!sel) return;
-      const rect=canvasEl.getBoundingClientRect();
-      const x=(e.clientX-rect.left)*(imgEl2.naturalWidth/canvasEl.width);
-      const y=(e.clientY-rect.top)*(imgEl2.naturalHeight/canvasEl.height);
-      let best,dmin=Infinity;
+      if (!sel) return;
+      const rect = canvasEl.getBoundingClientRect();
+      const x = (e.clientX-rect.left)*(imgEl2.naturalWidth/canvasEl.width);
+      const y = (e.clientY-rect.top)*(imgEl2.naturalHeight/canvasEl.height);
+      let best, dmin=Infinity;
       Object.keys(coords).forEach(n=>{
-        if(!n.startsWith('Z')){
-          const c=coords[n], d=Math.hypot(c.x-x,c.y-y);
-          if(d<dmin){dmin=d;best=n;}
+        if (!n.startsWith('Z')) {
+          const c = coords[n];
+          const d = Math.hypot(c.x-x,c.y-y);
+          if (d<dmin) { dmin=d; best=n; }
         }
       });
-      if(best){
+      if (best) {
         choicesZone.setChoiceByValue(best);
         document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
-        sel=false;
+        sel = false;
         document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
       }
     });
 
-    // === GPS calibration & affichage ===
-    let calibrationPoints=[];
+    // === GPS calibration & affichage & zone la plus proche ===
+    let calibrationPoints = [];
     function addCalibrationPoint(lat,lon,x,y){
       calibrationPoints.push({lat,lon,x,y});
-      if(calibrationPoints.length===2) console.log("Calibration prête.");
     }
-    // Nouveau calibrage : Bureau Administratif + MR8 Grenailleuse
+    // Calibration between Bureau Administratif & MR8 Grenailleuse
     addCalibrationPoint(45.19291,0.70595, coords["Bureau Administratif"].x, coords["Bureau Administratif"].y);
     addCalibrationPoint(45.19273,0.70554, coords["MR8 Grenailleuse"].x, coords["MR8 Grenailleuse"].y);
 
     function gpsToPixel(lat,lon){
-      if(calibrationPoints.length<2) return null;
-      const [p1,p2]=calibrationPoints;
-      const dx=p2.x-p1.x, dy=p2.y-p1.y;
-      const dLat=p2.lat-p1.lat, dLon=p2.lon-p1.lon;
-      const sx=dx/dLon, sy=dy/dLat;
-      return { x:p1.x+(lon-p1.lon)*sx, y:p1.y+(lat-p1.lat)*sy };
+      if (calibrationPoints.length<2) return null;
+      const [p1,p2] = calibrationPoints;
+      const dx = p2.x-p1.x, dy = p2.y-p1.y;
+      const dLat = p2.lat-p1.lat, dLon = p2.lon-p1.lon;
+      const sx = dx/dLon, sy = dy/dLat;
+      return { x: p1.x + (lon-p1.lon)*sx, y: p1.y + (lat-p1.lat)*sy };
     }
 
-    let userPosition=null, gpsEnabled=false;
-    document.getElementById('enableGPS').addEventListener('click',()=>{
-      gpsEnabled=!gpsEnabled;
-      document.getElementById('enableGPS').textContent = gpsEnabled?'Désactiver GPS':'Activer GPS';
-      if(gpsEnabled){
+    let userPosition = null, gpsEnabled = false;
+    document.getElementById('enableGPS').addEventListener('click', ()=>{
+      gpsEnabled = !gpsEnabled;
+      document.getElementById('enableGPS').textContent = gpsEnabled ? 'Désactiver GPS' : 'Activer GPS';
+      if (gpsEnabled) {
         navigator.geolocation.watchPosition(pos=>{
           userPosition = gpsToPixel(pos.coords.latitude,pos.coords.longitude);
+          if (userPosition) {
+            // Détermine la zone Z la plus proche
+            let bestZone = null, minDist = Infinity;
+            Object.keys(coords).filter(z=>z.startsWith('Z')).forEach(z=>{
+              const c = coords[z];
+              const d = Math.hypot(c.x - userPosition.x, c.y - userPosition.y);
+              if (d < minDist) { minDist = d; bestZone = z; }
+            });
+            if (bestZone) {
+              choicesZone.setChoiceByValue(bestZone);
+              document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
+            }
+          }
         }, err=>alert("Erreur GPS : "+err.message),{enableHighAccuracy:true});
-      } else userPosition=null;
+      } else {
+        userPosition = null;
+      }
     });
 
     function drawUser(){
-      if(!userPosition) return;
+      if (!userPosition) return;
       ajusterCanvas();
       ctx2.beginPath();
-      const rx=canvasEl.width/imgEl2.naturalWidth, ry=canvasEl.height/imgEl2.naturalHeight;
-      ctx2.arc(userPosition.x*rx,userPosition.y*ry,10,0,2*Math.PI);
+      const rx = canvasEl.width / imgEl2.naturalWidth;
+      const ry = canvasEl.height/ imgEl2.naturalHeight;
+      ctx2.arc(userPosition.x*rx, userPosition.y*ry, 10, 0, 2*Math.PI);
       ctx2.fillStyle='rgba(0,255,0,0.6)'; ctx2.fill();
       ctx2.strokeStyle='green'; ctx2.stroke();
     }
-    setInterval(()=>{ if(gpsEnabled) drawUser(); },1000);
+    setInterval(()=>{
+      if (gpsEnabled) drawUser();
+    }, 1000);
+
   </script>
 </body>
 </html>
