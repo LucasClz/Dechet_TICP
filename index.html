@@ -370,7 +370,6 @@
     let userPos=null, gpsOn=false, heading=null;
     let orientationListenerAdded = false;
 
-    // ------------------ SEULE PARTIE MODIFIÉE POUR L'ORIENTATION ! -----------------
     function handleOrient(e){
       if (typeof e.webkitCompassHeading !== "undefined") {
         heading = e.webkitCompassHeading;
@@ -398,7 +397,7 @@
           }
         },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
 
-        // Demande d'accès à la boussole/gyroscope uniquement ici
+        // Demande d'accès à la boussole/gyroscope uniquement ici !
         if (!orientationListenerAdded) {
           if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(res=>{
@@ -419,8 +418,8 @@
         heading=null;
       }
     });
-    // -----------------------------------------------------------------------------
 
+    // --------- Ici la zone d'orientation (cône et flèche) est tournée de +30° ---------
     function drawUser(){
       if(!userPos) return;
       ajusterCanvas();
@@ -428,7 +427,8 @@
             ry=canvasEl.height/imgEl2.naturalHeight;
       const x=userPos.x*rx, y=userPos.y*ry;
       if(heading!=null){
-        let ang=(heading*Math.PI/180)-Math.PI/2;
+        // Décalage +30 degrés = +Math.PI/6 radians
+        let ang=(heading*Math.PI/180)-Math.PI/2 + Math.PI/6;
         const fov=Math.PI/3, len=100;
         ctx2.save();
         ctx2.beginPath();
@@ -444,7 +444,7 @@
       ctx2.fillStyle='rgba(0,255,0,0.6)'; ctx2.fill();
       ctx2.strokeStyle='green'; ctx2.stroke();
       if(heading!=null){
-        let ang=(heading*Math.PI/180)-Math.PI/2;
+        let ang=(heading*Math.PI/180)-Math.PI/2 + Math.PI/6;
         ctx2.save();
         ctx2.translate(x,y);
         ctx2.rotate(ang);
@@ -460,6 +460,7 @@
     setInterval(()=>{
       if(gpsOn) drawUser();
     },1000);
+    // -----------------------------------------------------------------------------
   </script>
 </body>
 </html>
