@@ -353,18 +353,39 @@
     });
 
     // --- GPS + boussole & zone la plus proche ---
-    let calibration=[];
-    function addCalibration(lat,lon,x,y){ calibration.push({lat,lon,x,y}); }
-    addCalibration(45.19291,0.70595,coords["Bureau Administratif"].x,coords["Bureau Administratif"].y);
-    addCalibration(45.19273,0.70554,coords["MR8 Grenailleuse"].x,coords["MR8 Grenailleuse"].y);
+    // Calibration sur 3 points (barycentrique pour une échelle et orientation précise)
+    const calibration = [
+      {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y},    // Zone déchets 12
+      {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},     // Zone déchets 5
+      {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y}   // MR8 MABOR
+    ];
 
-    function gpsToPixel(lat,lon){
-      if(calibration.length<2) return null;
-      const [p1,p2]=calibration;
-      const dx=p2.x-p1.x, dy=p2.y-p1.y;
-      const dLat=p2.lat-p1.lat, dLon=p2.lon-p1.lon;
-      const sx=dx/dLon, sy=dy/dLat;
-      return { x:p1.x+(lon-p1.lon)*sx, y:p1.y+(lat-p1.lat)*sy };
+    function gpsToPixel(lat, lon) {
+      const [P0, P1, P2] = calibration;
+      const lat0 = P0.lat;
+      const lon0 = P0.lon;
+      const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
+      const kx = 111320 * Math.cos(avgLat);
+      const ky = 111320;
+      function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
+        const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
+        const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
+        const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
+        const w = 1 - u - v;
+        return [u, v, w];
+      }
+      const px = (lon - lon0) * kx;
+      const py = (lat - lat0) * ky;
+      const x0 = 0;
+      const y0 = 0;
+      const x1 = (P1.lon - lon0) * kx;
+      const y1 = (P1.lat - lat0) * ky;
+      const x2 = (P2.lon - lon0) * kx;
+      const y2 = (P2.lat - lat0) * ky;
+      const [u, v, w] = barycentric(px, py, x0, y0, x1, y1, x2, y2);
+      const xp = u*P0.x + v*P1.x + w*P2.x;
+      const yp = u*P0.y + v*P1.y + w*P2.y;
+      return {x: xp, y: yp};
     }
 
     let userPos=null, gpsOn=false, heading=null;
