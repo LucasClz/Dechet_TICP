@@ -404,18 +404,29 @@
       document.getElementById('enableGPS').textContent = gpsOn?'Désactiver GPS':'Activer GPS + Boussole';
       if(gpsOn){
         if(!navigator.geolocation) return alert('GPS non disponible');
-        navigator.geolocation.watchPosition(pos=>{
-          userPos = gpsToPixel(pos.coords.latitude,pos.coords.longitude);
-          let bz=null, mn=Infinity;
-          Object.keys(coords).filter(z=>z.startsWith('Z')).forEach(z=>{
-            const c=coords[z];
-            const d=Math.hypot(c.x-userPos.x,c.y-userPos.y);
-            if(d<mn){mn=d;bz=z;}
-          });
-          if(bz){
-            choicesZone.setChoiceByValue(bz);
-            document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
-          }
+    navigator.geolocation.watchPosition(pos => {
+  userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+
+  const selectedWaste = document.getElementById('dechetSelect').value.trim().toLowerCase();
+  let bz = null, mn = Infinity;
+
+  Object.entries(dechetsParZone).forEach(([zone, dechets]) => {
+    const containsWaste = !selectedWaste || dechets.some(d => d.toLowerCase() === selectedWaste);
+    if (containsWaste && coords[zone]) {
+      const d = Math.hypot(coords[zone].x - userPos.x, coords[zone].y - userPos.y);
+      if (d < mn) {
+        mn = d;
+        bz = zone;
+      }
+    }
+  });
+
+  if (bz) {
+    choicesZone.setChoiceByValue(bz);
+    document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
+  }
+}, err => alert('Erreur GPS : ' + err.message), { enableHighAccuracy: true });
+
         },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
 
         // Demande d'accès à la boussole/gyroscope uniquement ici !
