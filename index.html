@@ -405,6 +405,7 @@
       if(gpsOn){
         if(!navigator.geolocation) return alert('GPS non disponible');
         // Remplace la partie de watchPosition dans ton script par ce bloc :
+// Remplace la partie de watchPosition dans ton script par ce bloc :
 navigator.geolocation.watchPosition(pos => {
   userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
 
@@ -445,21 +446,44 @@ navigator.geolocation.watchPosition(pos => {
     // Met à jour l'affichage du panneau d'information avec les déchets
     updateInfoPanel(closestZone);
 
-    // Affiche un hotspot sur la carte
+    // Affiche un hotspot et une ligne entre utilisateur et zone cible
     const rx = canvasEl.width / imgEl2.naturalWidth;
     const ry = canvasEl.height / imgEl2.naturalHeight;
 
-    hotspots = [{
-      x: coords[closestZone].x * rx,
-      y: coords[closestZone].y * ry,
-      r: 12,
-      zone: closestZone
-    }];
+    const fromX = userPos.x * rx;
+    const fromY = userPos.y * ry;
+    const toX = coords[closestZone].x * rx;
+    const toY = coords[closestZone].y * ry;
+
+    hotspots = [{ x: toX, y: toY, r: 12, zone: closestZone }];
+
+    // Dessin de la ligne directe et des points
+    ctx2.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    ctx2.beginPath();
+    ctx2.moveTo(fromX, fromY);
+    ctx2.lineTo(toX, toY);
+    ctx2.strokeStyle = 'rgba(0,0,255,0.5)';
+    ctx2.lineWidth = 3;
+    ctx2.stroke();
+
+    // Point utilisateur
+    ctx2.beginPath();
+    ctx2.arc(fromX, fromY, 8, 0, 2 * Math.PI);
+    ctx2.fillStyle = 'blue';
+    ctx2.fill();
+
+    // Point zone cible
+    ctx2.beginPath();
+    ctx2.arc(toX, toY, 10, 0, 2 * Math.PI);
+    ctx2.strokeStyle = 'red';
+    ctx2.lineWidth = 3;
+    ctx2.stroke();
   }
 
 }, err => alert('Erreur GPS : ' + err.message), {
   enableHighAccuracy: true
 });
+
         // Demande d'accès à la boussole/gyroscope uniquement ici !
         if (!orientationListenerAdded) {
           if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
