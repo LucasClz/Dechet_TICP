@@ -404,33 +404,62 @@
       document.getElementById('enableGPS').textContent = gpsOn?'Désactiver GPS':'Activer GPS + Boussole';
       if(gpsOn){
         if(!navigator.geolocation) return alert('GPS non disponible');
-      navigator.geolocation.watchPosition(pos => {
+    // Remplace la partie de watchPosition dans ton script par ce bloc :
+navigator.geolocation.watchPosition(pos => {
   userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
 
+  // Met à jour dynamiquement la sélection de l'emplacement avec "Ma localisation"
+  const zoneSelect = document.getElementById('zoneSelect');
+  if (!Array.from(zoneSelect.options).some(opt => opt.value === 'Ma localisation')) {
+    const newOption = document.createElement('option');
+    newOption.value = 'Ma localisation';
+    newOption.textContent = 'Ma localisation';
+    zoneSelect.prepend(newOption);
+  }
+  zoneSelect.value = 'Ma localisation';
+
+  // Déclenche l'affichage des déchets proches selon la position GPS et le type sélectionné
   const selectedWaste = document.getElementById('dechetSelect').value.trim().toLowerCase();
-  let closestZone = null, minDist = Infinity;
 
+  let closestZone = null;
+  let minDist = Infinity;
+
+  // Parcourt toutes les zones Zxx contenant ce déchet
   Object.entries(dechetsParZone).forEach(([zone, dechets]) => {
-    if (!coords[zone]) return;
+    if (!coords[zone]) return; // Sécurité
 
-    // Filtrer seulement les zones contenant ce déchet
     const match = !selectedWaste || dechets.some(d => d.toLowerCase() === selectedWaste);
     if (match) {
-      const dist = Math.hypot(coords[zone].x - userPos.x, coords[zone].y - userPos.y);
+      const dx = coords[zone].x - userPos.x;
+      const dy = coords[zone].y - userPos.y;
+      const dist = Math.hypot(dx, dy);
+
       if (dist < minDist) {
         minDist = dist;
         closestZone = zone;
       }
     }
+  });
+
   if (closestZone) {
-    updateInfoPanel(closestZone); // Affiche les déchets
-    hotspots = [{ x: coords[closestZone].x * canvasEl.width / imgEl2.naturalWidth,
-                  y: coords[closestZone].y * canvasEl.height / imgEl2.naturalHeight,
-                  r: 12, zone: closestZone }];
+    // Met à jour l'affichage du panneau d'information avec les déchets
+    updateInfoPanel(closestZone);
+
+    // Affiche un hotspot sur la carte
+    const rx = canvasEl.width / imgEl2.naturalWidth;
+    const ry = canvasEl.height / imgEl2.naturalHeight;
+
+    hotspots = [{
+      x: coords[closestZone].x * rx,
+      y: coords[closestZone].y * ry,
+      r: 12,
+      zone: closestZone
+    }];
   }
 
-}, err => alert('Erreur GPS : ' + err.message), { enableHighAccuracy: true });
-
+}, err => alert('Erreur GPS : ' + err.message), {
+  enableHighAccuracy: true
+}
         },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
 
         // Demande d'accès à la boussole/gyroscope uniquement ici !
