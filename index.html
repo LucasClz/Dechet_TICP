@@ -404,18 +404,35 @@
       document.getElementById('enableGPS').textContent = gpsOn?'Désactiver GPS':'Activer GPS + Boussole';
       if(gpsOn){
         if(!navigator.geolocation) return alert('GPS non disponible');
-        navigator.geolocation.watchPosition(pos=>{
-          userPos = gpsToPixel(pos.coords.latitude,pos.coords.longitude);
-          let bz=null, mn=Infinity;
-          Object.keys(coords).filter(z=>z.startsWith('Z')).forEach(z=>{
-            const c=coords[z];
-            const d=Math.hypot(c.x-userPos.x,c.y-userPos.y);
-            if(d<mn){mn=d;bz=z;}
-          });
-          if(bz){
-            choicesZone.setChoiceByValue(bz);
-            document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
-          }
+      navigator.geolocation.watchPosition(pos => {
+  userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+
+  const selectedWaste = document.getElementById('dechetSelect').value.trim().toLowerCase();
+  let closestZone = null, minDist = Infinity;
+
+  Object.entries(dechetsParZone).forEach(([zone, dechets]) => {
+    if (!coords[zone]) return;
+
+    // Filtrer seulement les zones contenant ce déchet
+    const match = !selectedWaste || dechets.some(d => d.toLowerCase() === selectedWaste);
+    if (match) {
+      const dist = Math.hypot(coords[zone].x - userPos.x, coords[zone].y - userPos.y);
+      if (dist < minDist) {
+        minDist = dist;
+        closestZone = zone;
+      }
+    }
+  });
+
+  if (closestZone) {
+    updateInfoPanel(closestZone); // Affiche les déchets
+    hotspots = [{ x: coords[closestZone].x * canvasEl.width / imgEl2.naturalWidth,
+                  y: coords[closestZone].y * canvasEl.height / imgEl2.naturalHeight,
+                  r: 12, zone: closestZone }];
+  }
+
+}, err => alert('Erreur GPS : ' + err.message), { enableHighAccuracy: true });
+
         },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
 
         // Demande d'accès à la boussole/gyroscope uniquement ici !
