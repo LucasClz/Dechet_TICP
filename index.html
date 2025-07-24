@@ -404,7 +404,7 @@
       document.getElementById('enableGPS').textContent = gpsOn?'Désactiver GPS':'Activer GPS + Boussole';
       if(gpsOn){
         if(!navigator.geolocation) return alert('GPS non disponible');
-    // Remplace la partie de watchPosition dans ton script par ce bloc :
+        // Remplace la partie de watchPosition dans ton script par ce bloc :
 navigator.geolocation.watchPosition(pos => {
   userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
 
@@ -459,9 +459,7 @@ navigator.geolocation.watchPosition(pos => {
 
 }, err => alert('Erreur GPS : ' + err.message), {
   enableHighAccuracy: true
-}
-        },err=>alert('Erreur GPS : '+err.message),{enableHighAccuracy:true});
-
+});
         // Demande d'accès à la boussole/gyroscope uniquement ici !
         if (!orientationListenerAdded) {
           if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
