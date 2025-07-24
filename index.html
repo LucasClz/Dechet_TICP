@@ -422,8 +422,6 @@
         closestZone = zone;
       }
     }
-  });
-
   if (closestZone) {
     updateInfoPanel(closestZone); // Affiche les déchets
     hotspots = [{ x: coords[closestZone].x * canvasEl.width / imgEl2.naturalWidth,
