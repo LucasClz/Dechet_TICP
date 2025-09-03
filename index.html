@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Localisation Déchets – TICP (optimisé)</title>
+  <title>Localisation Déchets – TICP (optimisé + calibration GPS)</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
   <style>
@@ -142,11 +142,9 @@
 
     function drawAll(){
       ctx2.clearRect(0,0,canvasEl.width,canvasEl.height);
-      // ratios (pixels écran -> coords image)
       const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
       const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
 
-      // Route
       if (route){
         const p0 = { x: route.from.x * rx, y: route.from.y * ry };
         const p1 = { x: route.to.x   * rx, y: route.to.y   * ry };
@@ -159,17 +157,15 @@
         [['red',p0],['green',p1]].forEach(([col,pt])=>{ ctx2.beginPath(); ctx2.arc(pt.x,pt.y,r,0,Math.PI*2); ctx2.lineWidth=3; ctx2.strokeStyle=col; ctx2.stroke(); });
       }
 
-      // Hotspots (dessin simple)
       hotspots.forEach(h=>{
         const sx = h.imgX * rx, sy = h.imgY * ry;
         ctx2.beginPath(); ctx2.arc(sx, sy, h.r, 0, Math.PI*2); ctx2.lineWidth=3; ctx2.strokeStyle='red'; ctx2.stroke();
       });
 
-      // Utilisateur + FOV
       if (userPos){
         const ux = userPos.x * rx, uy = userPos.y * ry;
         if (heading != null){
-          const ang = normalizeHeadingRad(heading) - Math.PI/2; // 0=N
+          const ang = normalizeHeadingRad(heading) - Math.PI/2;
           const fov = Math.PI/3, len = Math.min(canvasEl.width, canvasEl.height) / dpr() * 0.12;
           ctx2.save(); ctx2.beginPath(); ctx2.moveTo(ux,uy); ctx2.arc(ux,uy,len, ang - fov/2, ang + fov/2); ctx2.closePath(); ctx2.fillStyle='rgba(0,0,255,0.2)'; ctx2.fill(); ctx2.restore();
           ctx2.save(); ctx2.translate(ux,uy); ctx2.rotate(ang); ctx2.beginPath(); ctx2.moveTo(0,-15); ctx2.lineTo(-6,-5); ctx2.lineTo(6,-5); ctx2.closePath(); ctx2.fillStyle='blue'; ctx2.fill(); ctx2.restore();
@@ -178,7 +174,7 @@
       }
     }
 
-    // --- Sélection par formulaire (itinéraire) ---
+    // --- Soumission (itinéraire manuel) ---
     document.getElementById('searchForm').addEventListener('submit', e=>{
       e.preventDefault();
       const dep = document.getElementById('zoneSelect').value;
@@ -199,37 +195,29 @@
       startAnim(drawAll);
     });
 
-    // --- Interaction canvas: sélection par clic ---
-    const canvasRectToImage = ()=>{
-      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
-      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
-      return { rx, ry };
-    };
-
+    // --- Interaction canvas ---
     canvasEl.addEventListener('mousemove', e=>{
       const rect = canvasEl.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const { rx, ry } = canvasRectToImage();
+      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
+      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
       hoverHotspot = null;
       for (let h of hotspots){
         const sx = h.imgX * rx, sy = h.imgY * ry;
         if (Math.hypot(sx - mx, sy - my) <= h.r + 5){ hoverHotspot = h; break; }
       }
     });
-
     canvasEl.addEventListener('mouseleave', ()=> hoverHotspot = null);
 
     let sel=false;
     document.getElementById('enableClickSelect').addEventListener('click', ()=>{
       sel=!sel; document.getElementById('enableClickSelect').textContent = sel?'Cliquez…':'Choisir sur la carte';
     });
-
     canvasEl.addEventListener('click', e=>{
       const rect = canvasEl.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const { rx, ry } = canvasRectToImage();
-
-      // 1) Hotspots -> popup
+      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
+      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
       for (let h of hotspots){
         const sx = h.imgX * rx, sy = h.imgY * ry;
         if (Math.hypot(sx - mx, sy - my) <= h.r){
@@ -238,65 +226,85 @@
             popupEl.src = src;
             const px = Math.min(Math.max(mx - 150, 8), rect.width  - 308);
             const py = Math.min(Math.max(my - 310, 8), rect.height - 180);
-            popupEl.style.left = `${px}px`; popupEl.style.top = `${py}px`;
+            popupEl.style.left = `${px}px`; popupEl.style.top  = `${py}px`;
             popupEl.style.display = 'block';
           }
           return;
         }
       }
       popupEl.style.display = 'none';
-
-      // 2) Sélection par clic si activée
       if (!sel) return;
-      const imgX = mx / rx;
-      const imgY = my / ry;
-      let best, dmin=Infinity;
+      const imgX = mx / rx; const imgY = my / ry;
+      let best,dmin=Infinity;
       Object.keys(coords).forEach(n=>{
-        if (!n.startsWith('Z')){
-          const c = coords[n], d = Math.hypot(c.x - imgX, c.y - imgY);
-          if (d < dmin){ dmin=d; best=n; }
+        if(!n.startsWith('Z')){
+          const c=coords[n], d=Math.hypot(c.x-imgX,c.y-imgY);
+          if(d<dmin){dmin=d;best=n;}
         }
       });
-      if (best){
-        choicesZone.setChoiceByValue(best);
-        document.getElementById('zoneSelect').dispatchEvent(new Event('change'));
-        sel=false; document.getElementById('enableClickSelect').textContent='Choisir sur la carte';
-      }
+      if(best){ choicesZone.setChoiceByValue(best); document.getElementById('zoneSelect').dispatchEvent(new Event('change')); sel=false; document.getElementById('enableClickSelect').textContent='Choisir sur la carte'; }
     });
 
-    // --- GPS + boussole ---
-    const calibration = [
-      {lat:45.193611, lon:0.705167, x: coords["Z12"].x,   y: coords["Z12"].y},
-      {lat:45.192694, lon:0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},
-      {lat:45.192194, lon:0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y}
+    // === Calibration GPS précise (homographie) ===============================
+    const controlPoints = [
+      { name: "Z5",  lat: 45.192701, lon: 0.706038, x: coords["Z5"].x,  y: coords["Z5"].y  },
+      { name: "Z12", lat: 45.193602, lon: 0.705176, x: coords["Z12"].x, y: coords["Z12"].y },
+      { name: "Z21", lat: 45.194346, lon: 0.703709, x: coords["Z21"].x, y: coords["Z21"].y },
+      { name: "Z31", lat: 45.195269, lon: 0.702184, x: coords["Z31"].x, y: coords["Z31"].y }
     ];
 
-    function gpsToPixel(lat, lon){
-      const [P0, P1, P2] = calibration;
-      const lat0 = P0.lat, lon0 = P0.lon;
-      const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
-      const kx = 111320 * Math.cos(avgLat), ky = 111320;
-      const px = (lon - lon0) * kx, py = (lat - lat0) * ky;
-      const x0=0, y0=0, x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky, x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky;
-      const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
-      const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
-      const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
-      const w = 1 - u - v;
-      return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
+    const avgLat = controlPoints.reduce((s,p)=>s+p.lat,0)/controlPoints.length;
+    const lat0   = avgLat;
+    const lon0   = controlPoints.reduce((s,p)=>s+p.lon,0)/controlPoints.length;
+    const kx     = 111320 * Math.cos(avgLat * Math.PI/180);
+    const ky     = 111320;
+    function ll2xy(lat, lon){ return { X:(lon - lon0) * kx, Y:(lat - lat0) * ky }; }
+
+    function computeHomography(srcPts, dstPts){
+      const A=[], b=[];
+      for(let i=0;i<4;i++){
+        const {X,Y}=srcPts[i], {x,y}=dstPts[i];
+        A.push([X,Y,1, 0,0,0, -x*X, -x*Y]); b.push(x);
+        A.push([0,0,0, X,Y,1, -y*X, -y*Y]); b.push(y);
+      }
+      const h = solveLeastSquares(A,b);
+      return [ [h[0],h[1],h[2]], [h[3],h[4],h[5]], [h[6],h[7],1] ];
+    }
+    function solveLeastSquares(A,b){
+      const m=A[0].length, n=A.length;
+      const AT=Array.from({length:m},()=>Array(n).fill(0));
+      for(let i=0;i<n;i++) for(let j=0;j<m;j++) AT[j][i]=A[i][j];
+      const M=Array.from({length:m},()=>Array(m).fill(0));
+      const v=Array(m).fill(0);
+      for(let i=0;i<m;i++){
+        for(let j=0;j<m;j++){ let s=0; for(let k=0;k<n;k++) s+=AT[i][k]*A[k][j]; M[i][j]=s; }
+        let sv=0; for(let k=0;k<n;k++) sv+=AT[i][k]*b[k]; v[i]=sv;
+      }
+      return gaussSolve(M,v);
+    }
+    function gaussSolve(M,v){
+      const n=v.length; for(let i=0;i<n;i++){ M[i]=M[i].slice(); M[i].push(v[i]); }
+      for(let i=0;i<n;i++){
+        let piv=i; for(let r=i+1;r<n;r++) if(Math.abs(M[r][i])>Math.abs(M[piv][i])) piv=r;
+        if(Math.abs(M[piv][i])<1e-12) throw new Error('Système mal conditionné');
+        if(piv!==i){ const t=M[i]; M[i]=M[piv]; M[piv]=t; }
+        const div=M[i][i]; for(let c=i;c<=n;c++) M[i][c]/=div;
+        for(let r=0;r<n;r++){ if(r===i) continue; const f=M[r][i]; for(let c=i;c<=n;c++) M[r][c]-=f*M[i][c]; }
+      }
+      return M.map(row=>row[n]);
     }
 
+    const srcPts = controlPoints.map(p=>ll2xy(p.lat,p.lon));
+    const dstPts = controlPoints.map(p=>({x:p.x,y:p.y}));
+    const H = computeHomography(srcPts,dstPts);
+    function applyH(X,Y){ const x=H[0][0]*X+H[0][1]*Y+H[0][2]; const y=H[1][0]*X+H[1][1]*Y+H[1][2]; const w=H[2][0]*X+H[2][1]*Y+1; return {x:x/w, y:y/w}; }
+    function gpsToPixel(lat,lon){ const {X,Y}=ll2xy(lat,lon); return applyH(X,Y); }
+
+    // --- GPS + boussole (sans itinéraire auto) ---
     let userPos=null, gpsOn=false, heading=null, headingSource='alpha';
     let orientationListenerAdded=false;
-
-    function handleOrient(e){
-      if (typeof e.webkitCompassHeading !== 'undefined') { heading = e.webkitCompassHeading; headingSource='ios'; }
-      else if (typeof e.alpha !== 'undefined') { heading = e.alpha; headingSource='alpha'; }
-    }
-
-    function normalizeHeadingRad(raw){
-      if (headingSource === 'ios') return raw * Math.PI/180;
-      return (raw - 90) * Math.PI/180; // alpha -> 0=E -> 0=N
-    }
+    function handleOrient(e){ if (typeof e.webkitCompassHeading !== 'undefined') { heading = e.webkitCompassHeading; headingSource='ios'; } else if (typeof e.alpha !== 'undefined') { heading = e.alpha; headingSource='alpha'; } }
+    function normalizeHeadingRad(raw){ if (headingSource === 'ios') return raw * Math.PI/180; return (raw - 90) * Math.PI/180; }
 
     document.getElementById('enableGPS').addEventListener('click', ()=>{
       gpsOn = !gpsOn;
@@ -304,19 +312,11 @@
       if (gpsOn){
         if (!navigator.geolocation){ toast('GPS non disponible'); gpsOn=false; return; }
         navigator.geolocation.watchPosition(pos=>{
-          // MAJ position uniquement, pas d'itinéraire automatique
           userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
-
-          // Ajout / sélection de "Ma localisation"
           const zoneSelect = document.getElementById('zoneSelect');
           if (![...zoneSelect.options].some(o=>o.value==='Ma localisation')){
-            const opt = new Option('Ma localisation','Ma localisation',true,true);
-            zoneSelect.prepend(opt);
-          } else {
-            zoneSelect.value = 'Ma localisation';
-          }
-
-          // Redessine avec la nouvelle position
+            const opt = new Option('Ma localisation','Ma localisation',true,true); zoneSelect.prepend(opt);
+          } else { zoneSelect.value = 'Ma localisation'; }
           startAnim(drawAll);
         }, err => toast('Erreur GPS : ' + err.message), { enableHighAccuracy:true });
 
