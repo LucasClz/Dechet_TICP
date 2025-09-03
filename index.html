@@ -159,8 +159,7 @@
         [['red',p0],['green',p1]].forEach(([col,pt])=>{ ctx2.beginPath(); ctx2.arc(pt.x,pt.y,r,0,Math.PI*2); ctx2.lineWidth=3; ctx2.strokeStyle=col; ctx2.stroke(); });
       }
 
-      // Hotspots (dessin + hover)
-      hoverHotspot = null; // sera recalculé au mousemove; ici on dessine seulement
+      // Hotspots (dessin simple)
       hotspots.forEach(h=>{
         const sx = h.imgX * rx, sy = h.imgY * ry;
         ctx2.beginPath(); ctx2.arc(sx, sy, h.r, 0, Math.PI*2); ctx2.lineWidth=3; ctx2.strokeStyle='red'; ctx2.stroke();
@@ -179,7 +178,7 @@
       }
     }
 
-    // --- Sélection par formulaire (itinéraire vers zone la plus proche pour un déchet) ---
+    // --- Sélection par formulaire (itinéraire) ---
     document.getElementById('searchForm').addEventListener('submit', e=>{
       e.preventDefault();
       const dep = document.getElementById('zoneSelect').value;
@@ -200,12 +199,17 @@
       startAnim(drawAll);
     });
 
-    // --- Interaction canvas: hover + click (hotspot puis sélection) ---
+    // --- Interaction canvas: sélection par clic ---
+    const canvasRectToImage = ()=>{
+      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
+      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
+      return { rx, ry };
+    };
+
     canvasEl.addEventListener('mousemove', e=>{
       const rect = canvasEl.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
-      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
+      const { rx, ry } = canvasRectToImage();
       hoverHotspot = null;
       for (let h of hotspots){
         const sx = h.imgX * rx, sy = h.imgY * ry;
@@ -223,17 +227,15 @@
     canvasEl.addEventListener('click', e=>{
       const rect = canvasEl.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const rx = (canvasEl.width  / dpr()) / imgEl2.naturalWidth;
-      const ry = (canvasEl.height / dpr()) / imgEl2.naturalHeight;
+      const { rx, ry } = canvasRectToImage();
 
-      // 1) Hotspots
+      // 1) Hotspots -> popup
       for (let h of hotspots){
         const sx = h.imgX * rx, sy = h.imgY * ry;
         if (Math.hypot(sx - mx, sy - my) <= h.r){
           const src = zoneImages[h.zone];
           if (src){
             popupEl.src = src;
-            // clamp dans le conteneur
             const px = Math.min(Math.max(mx - 150, 8), rect.width  - 308);
             const py = Math.min(Math.max(my - 310, 8), rect.height - 180);
             popupEl.style.left = `${px}px`; popupEl.style.top = `${py}px`;
@@ -246,7 +248,7 @@
 
       // 2) Sélection par clic si activée
       if (!sel) return;
-      const imgX = mx / rx; // inverse
+      const imgX = mx / rx;
       const imgY = my / ry;
       let best, dmin=Infinity;
       Object.keys(coords).forEach(n=>{
@@ -292,9 +294,8 @@
     }
 
     function normalizeHeadingRad(raw){
-      // iOS: webkitCompassHeading (0=N, CW). Android: alpha (0=Est, CW)
       if (headingSource === 'ios') return raw * Math.PI/180;
-      return (raw - 90) * Math.PI/180; // alpha -> 0=E vers 0=N
+      return (raw - 90) * Math.PI/180; // alpha -> 0=E -> 0=N
     }
 
     document.getElementById('enableGPS').addEventListener('click', ()=>{
@@ -303,28 +304,19 @@
       if (gpsOn){
         if (!navigator.geolocation){ toast('GPS non disponible'); gpsOn=false; return; }
         navigator.geolocation.watchPosition(pos=>{
+          // MAJ position uniquement, pas d'itinéraire automatique
           userPos = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+
+          // Ajout / sélection de "Ma localisation"
           const zoneSelect = document.getElementById('zoneSelect');
           if (![...zoneSelect.options].some(o=>o.value==='Ma localisation')){
-            const opt = new Option('Ma localisation','Ma localisation',true,true); zoneSelect.prepend(opt);
-          } else { zoneSelect.value = 'Ma localisation'; }
-
-          const wanted = document.getElementById('dechetSelect').value.trim().toLowerCase();
-          let closestZone=null, minDist=Infinity;
-          Object.entries(dechetsParZone).forEach(([zone, dechets])=>{
-            if (!coords[zone]) return;
-            const match = !wanted || dechets.some(d=>d.toLowerCase()===wanted);
-            if (match){
-              const dx = coords[zone].x - userPos.x, dy = coords[zone].y - userPos.y;
-              const dist = Math.hypot(dx, dy);
-              if (dist < minDist){ minDist = dist; closestZone = zone; }
-            }
-          });
-          if (closestZone){
-            updateInfoPanel(closestZone);
-            route = { from: {x:userPos.x, y:userPos.y}, to: {x:coords[closestZone].x, y:coords[closestZone].y} };
-            hotspots = [{ imgX: coords[closestZone].x, imgY: coords[closestZone].y, r:12, zone: closestZone }];
+            const opt = new Option('Ma localisation','Ma localisation',true,true);
+            zoneSelect.prepend(opt);
+          } else {
+            zoneSelect.value = 'Ma localisation';
           }
+
+          // Redessine avec la nouvelle position
           startAnim(drawAll);
         }, err => toast('Erreur GPS : ' + err.message), { enableHighAccuracy:true });
 
