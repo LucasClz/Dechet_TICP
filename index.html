@@ -1,69 +1,90 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>TICP • Localisation Déchets (Pro, stable)</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TICP • Localisation Déchets (Pro, Stable)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-  :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb}
+  :root{
+    --brand:#E6007E; --brand-700:#b80063;
+    --bg:#f6f7fb; --panel:#fff; --text:#1f2a37; --muted:#6b7280; --line:#e5e7eb;
+  }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,sans-serif;
+  }
+  .app{display:grid; grid-template-rows:auto 1fr; height:100%}
+  header.appbar{
+    position:sticky; top:0; z-index:10;
+    background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78));
+    border-bottom:1px solid var(--line);
+  }
+  .bar{display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1400px; margin:0 auto; padding:12px 16px}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700}
+  .logo{width:10px; height:28px; border-radius:999px; background:var(--brand); box-shadow:0 0 0 6px rgba(230,0,126,.08)}
+  .actions{display:flex; gap:8px; align-items:center}
+  .chip{font-size:12px; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; border:1px solid var(--line)}
 
-  .app{display:grid;grid-template-rows:auto 1fr;height:100%}
-  header.appbar{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.8));border-bottom:1px solid var(--line)}
-  .bar{max-width:1400px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700}
-  .logo{width:10px;height:28px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 6px rgba(230,0,126,.08)}
-  .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#eef2ff;color:#3730a3}
+  .layout{display:grid; grid-template-columns:340px 1fr; gap:16px; max-width:1400px; margin:16px auto; padding:0 16px 16px}
+  @media (max-width:1024px){ .layout{grid-template-columns:1fr} }
 
-  .layout{display:grid;grid-template-columns:340px 1fr;gap:16px;max-width:1400px;margin:16px auto;padding:0 16px 16px}
-  @media (max-width:1024px){.layout{grid-template-columns:1fr}}
-
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px rgba(2,8,23,.06)}
-  .panel>header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
-  .panel>.content{padding:12px 14px}
-  .grid{display:grid;gap:12px}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 10px 30px rgba(2,8,23,.06)}
+  .panel header{padding:14px 16px; border-bottom:1px solid var(--line); font-weight:700; display:flex; align-items:center; justify-content:space-between}
+  .panel .content{padding:14px 16px}
+  .grid{display:grid; gap:12px}
   .two{grid-template-columns:1fr 1fr}
-  .field{display:grid;gap:6px}
-  .field label{font-size:12px;color:var(--muted)}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  select,.choices__inner{width:100%}
+  .field{display:grid; gap:6px}
+  .field label{font-size:12px; color:var(--muted)}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
 
-  .btn{appearance:none;border:none;border-radius:10px;cursor:pointer;padding:10px 14px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 8px 22px rgba(230,0,126,.22);transition:.2s}
-  .btn:hover{background:var(--brand-700);transform:translateY(-1px)}
-  .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
-  .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
+  .btn{
+    appearance:none; border:none; border-radius:10px; cursor:pointer;
+    padding:10px 14px; font-weight:600; background:var(--brand); color:#fff;
+    box-shadow:0 8px 22px rgba(230,0,126,.22); transition:.2s ease;
+  }
+  .btn:hover{background:var(--brand-700); transform:translateY(-1px)}
+  .btn.secondary{background:#fff; color:var(--text); border:1px solid var(--line); box-shadow:none}
+  .btn.small{padding:8px 10px; border-radius:8px; font-size:12px}
+
+  select, .choices__inner{width:100%}
 
   /* Carte */
-  .mapwrap{position:relative;height:70vh;min-height:520px;border-radius:16px;overflow:hidden;background:#0b1020}
-  .stage{position:absolute;inset:0;/* contiendra img + canvas, tous deux transformés ensemble */}
-  /* L'IMAGE est toujours ENTIEREMENT VISIBLE au chargement grâce au mode "fit contain" en JS.
-     (Pas d'object-fit ici — on contrôle largeur/hauteur + offsets pour calcul précis) */
-  .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none;will-change:transform}
-  canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
+  .mapwrap{position:relative; height:70vh; min-height:520px; border-radius:16px; overflow:hidden}
+  .map{position:absolute; inset:0; background:#0b1020}
+  .map img{position:absolute; left:0; top:0; user-select:none; -webkit-user-drag:none}
+  canvas#overlay{position:absolute; left:0; top:0}
 
-  .hud{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
-  .card{background:rgba(255,255,255,.9);border:1px solid var(--line);color:#111827;padding:10px;border-radius:12px;box-shadow:0 10px 30px rgba(2,8,23,.15);min-width:160px}
-  .kpi{font-size:12px;color:#6b7280;display:flex;gap:8px;align-items:center}
-  .kpi strong{font-size:13px;color:#1f2a37}
+  /* HUD */
+  .hud{position:absolute; right:12px; top:12px; display:flex; flex-direction:column; gap:8px; z-index:5}
+  .card{background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:12px; padding:10px; min-width:170px; color:#111827}
+  .kpi{font-size:12px; color:#6b7280; display:flex; gap:6px; align-items:center}
+  .kpi strong{font-size:13px; color:#111827}
 
-  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
+  /* Toast */
+  .toast{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#111; color:#fff; padding:10px 14px; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:9999}
   .toast.show{opacity:1}
 </style>
 </head>
 <body>
 <div class="app">
-
   <header class="appbar">
     <div class="bar">
-      <div class="brand"><div class="logo"></div> TICP • Localisation des déchets</div>
-      <div class="row">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          TICP • <span>Localisation des déchets</span><br>
+          <small>Technicentre SNCF de Périgueux</small>
+        </div>
+      </div>
+      <div class="actions">
         <span class="chip" id="chipGps">GPS: off</span>
         <span class="chip" id="chipCompass">Boussole: off</span>
       </div>
@@ -79,7 +100,7 @@
           <label>Origine</label>
           <div class="row">
             <button class="btn small" id="btnGPS">Activer GPS + Boussole</button>
-            <button class="btn secondary small" id="btnPick">Choisir sur la carte</button>
+            <button class="btn secondary small" id="btnPick">Choisir sur le plan</button>
           </div>
         </div>
 
@@ -101,18 +122,19 @@
 
         <div class="field">
           <label>Déchets dans la zone</label>
-          <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0"><li>Aucune zone sélectionnée</li></ul>
+          <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0;">
+            <li>Aucune zone sélectionnée</li>
+          </ul>
         </div>
 
-        <p style="color:#6b7280;margin:6px 0 0 0">
-          • Molette = zoom, glisser = déplacer. Image affichée <b>en entier</b> au départ.<br>
-          • Le GPS <b>ne trace pas automatiquement</b> : cliquez “Tracer”.<br>
-          • Boussole : iOS demandera une autorisation.
+        <p style="color:#6b7280;margin:6px 0 0 0;">
+          • L’image est ajustée <b>entièrement</b> au chargement (bouton “Ajuster” pour y revenir).<br>
+          • Molette = zoom, glisser = déplacer. Aucun itinéraire automatique.
         </p>
       </div>
     </section>
 
-    <!-- Panneau droit : Carte -->
+    <!-- Panneau droit -->
     <section class="panel">
       <header>
         Plan & Orientation
@@ -125,9 +147,10 @@
       </header>
       <div class="content">
         <div class="mapwrap" id="mapContainer">
-          <div class="stage" id="stage">
-            <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+          <div class="map">
+            <img id="mapImage" src="1.png" alt="Plan du site" draggable="false"/>
             <canvas id="overlay"></canvas>
+
             <div class="hud">
               <div class="card">
                 <div class="kpi">Position <strong id="kpiPos">—</strong></div>
@@ -146,11 +169,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script>
-/* ========= Helpers ========= */
-const $ = (q)=>document.querySelector(q);
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
+"use strict";
 
-/* ========= Données ========= */
+/* ---------- Données ---------- */
 const coords = {
   "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
   "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
@@ -184,7 +205,8 @@ const dechetsParZone = {
   Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
   Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
   Z5:["Bac noir","Bac jaune","Carton","Cartouche d'encre"],
-  Z6:["Bac noir","Bac jaune"], Z7:["Bac noir","Plastique"],
+  Z6:["Bac noir","Bac jaune"],
+  Z7:["Bac noir","Plastique"],
   Z8:["Bois","Carton","Ferreux","Polystyrène","Plastique","Bac jaune","Bac noir"],
   Z9:["Carton","Bois","Bac noir","Réhausses KC"],
   Z10:["Aérosols","Bac noir","Non ferreux","Carton"],
@@ -202,162 +224,167 @@ const dechetsParZone = {
   Z22:["Geobox Déchets dangereux","Fût peinture"],
   Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
   Z24:["Caoutchouc","Pélican","Verre"],
-  Z25:["Geobox Déchets dangereux"], Z26:["Carton","Bois"],
+  Z25:["Geobox Déchets dangereux"],
+  Z26:["Carton","Bois"],
   Z27:["Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","Aérosols"],
   Z28:["Ferreux","Bac noir","Fût filtres","Huile usagées"],
   Z29:["Geobox Déchets dangereux"],
   Z30:["Geobox Déchets dangereux","Pélican","Bac jaune","Carton","Bois","DEEE","Non ferreux","Ferreux","Aérosols","Amiante"],
   Z31:["Bac noir","Bac jaune","Amiante"],
   Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
-  Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
+  Z33:["Amiante"],
+  Z34:["Bac noir","Bac jaune"],
+  Z35:["Bac noir","Bac jaune","Plastique","Carton"]
 };
 
-/* ========= UI : select & panneau déchets ========= */
-const choicesZone   = new Choices($('#zoneSelect'),   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
-const choicesDechet = new Choices($('#dechetSelect'), {searchEnabled:true,shouldSort:true, itemSelectText:'',placeholderValue:'Rechercher un déchet…'});
+/* ---------- Helpers ---------- */
+const $ = (q)=>document.querySelector(q);
+const toastEl = $('#toast');
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1800); }
 
-Object.keys(coords).filter(k=>!k.startsWith('Z')).forEach(k=>{
-  choicesZone.setChoices([{value:k,label:k}], 'value','label', false);
-});
-const allTypes=[...new Set(Object.values(dechetsParZone).flat())].sort();
-allTypes.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+/* ---------- Sélecteurs ---------- */
+let choicesZone, choicesDechet;
+function initChoices(){
+  choicesZone = new Choices($('#zoneSelect'), {searchEnabled:true, shouldSort:false, itemSelectText:'', placeholderValue:'Rechercher un emplacement…'});
+  choicesDechet = new Choices($('#dechetSelect'), {searchEnabled:true, shouldSort:true, itemSelectText:'', placeholderValue:'Rechercher un déchet…'});
 
-$('#zoneSelect').addEventListener('change', e=>{
-  updateInfoPanel(e.target.value);
-  const types=dechetsParZone[e.target.value]||allTypes;
-  choicesDechet.clearChoices();
-  types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
-});
+  Object.keys(coords).filter(k=>!k.startsWith('Z')).forEach(k=>{
+    choicesZone.setChoices([{value:k,label:k}], 'value','label', false);
+  });
+  const allTypes = [...new Set(Object.values(dechetsParZone).flat())].sort();
+  allTypes.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+
+  $('#zoneSelect').addEventListener('change', e=>{
+    updateInfoPanel(e.target.value);
+    const types = dechetsParZone[e.target.value] || allTypes;
+    choicesDechet.clearChoices();
+    types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+  });
+}
 function updateInfoPanel(zone){
-  const ul=$('#dechetList'); ul.innerHTML='';
-  (dechetsParZone[zone]||[]).sort().forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
-  if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
+  const list = $('#dechetList'); list.innerHTML='';
+  (dechetsParZone[zone]||[]).sort().forEach(t=>{
+    const li=document.createElement('li'); li.textContent=t; list.appendChild(li);
+  });
+  if(!(dechetsParZone[zone]||[]).length) list.innerHTML='<li>Aucun déchet</li>';
 }
 
-/* ========= Carte : fit contain + zoom/pan (image entièrement visible au départ) ========= */
-const mapContainer=$('#mapContainer');
-const stage=$('#stage');              // wrapper transformé (img + canvas bougent ensemble)
-const mapImg=$('#mapImage');
-const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
+/* ---------- Carte (fit contain + zoom/pan) ---------- */
+const mapContainer = $('#mapContainer');
+const mapImg = $('#mapImage');
+const canvas = $('#overlay');
+const ctx = canvas.getContext('2d');
 
-let base={s:1,ox:0,oy:0,iw:1,ih:1};   // fit contain
-let view={z:1, panX:0, panY:0};       // zoom/pan utilisateur
-let dragging=false, lx=0, ly=0;
+let base = { s:1, ox:0, oy:0, iw:1, ih:1 }; // valeurs sûres
+let view = { z:1, panX:0, panY:0 };
+let dragging=false, dragX=0, dragY=0;
 
-function computeFit(){
-  const r=mapContainer.getBoundingClientRect();
-  canvas.width=r.width; canvas.height=r.height;
-  base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
-  const s=Math.min(r.width/base.iw, r.height/base.ih); // ENTIEREMENT visible
-  base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
-}
-function applyTransform(){
-  // on déplace/scale le wrapper 'stage' pour garder img et canvas alignés
-  stage.style.transform=`translate(${base.ox+view.panX}px,${base.oy+view.panY}px) scale(${base.s*view.z})`;
-  stage.style.transformOrigin='top left';
-  mapImg.style.width=base.iw+'px';
-  mapImg.style.height=base.ih+'px';
-  // le canvas reste en taille conteneur; on dessine en coordonnées écran -> conversion dédiée
-  $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
-}
-function fitAndCenter(){
-  computeFit();
-  view.z=1; view.panX=0; view.panY=0;
-  applyTransform();
-  drawAll();
-}
-new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
-mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
-if (mapImg.complete) { // si l'image est déjà en cache
-  // attendre un micro-task pour que naturalWidth/Height soient dispos
-  setTimeout(()=>fitAndCenter(),0);
+function applyLayout(){
+  const r = mapContainer.getBoundingClientRect();
+  canvas.width = r.width; canvas.height = r.height;
+
+  // Dimensions natives (assure image prête)
+  base.iw = mapImg.naturalWidth || mapImg.width || 1;
+  base.ih = mapImg.naturalHeight || mapImg.height || 1;
+
+  // FIT CONTAIN -> image entièrement visible
+  const s = Math.min(r.width/base.iw, r.height/base.ih);
+  base.s = s;
+  base.ox = (r.width - base.iw*s)/2;
+  base.oy = (r.height - base.ih*s)/2;
+
+  // Appliquer transform
+  mapImg.style.width  = (base.iw*base.s*view.z)+'px';
+  mapImg.style.height = (base.ih*base.s*view.z)+'px';
+  mapImg.style.left   = (base.ox + view.panX)+'px';
+  mapImg.style.top    = (base.oy + view.panY)+'px';
+
+  $('#kpiZoom').textContent = Math.round(view.z*100)+'%';
 }
 
-// conversions
-function imgToScreen(pt){
-  // renvoie coordonnées écran (pixels) d’un point (x,y) en pixels image
-  return {
-    x: (base.ox + view.panX) + pt.x * (base.s*view.z),
-    y: (base.oy + view.panY) + pt.y * (base.s*view.z)
-  };
+function fitNow(){ view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
+
+function ensureImageReady(cb){
+  if (mapImg.complete && (mapImg.naturalWidth||0) > 0){ cb(); return; }
+  mapImg.addEventListener('load', ()=>cb(), {once:true});
+}
+
+new ResizeObserver(()=>applyLayout()).observe(mapContainer);
+
+function imgToScreen(p){
+  const sc = base.s*view.z;
+  return { x: base.ox + view.panX + p.x*sc, y: base.oy + view.panY + p.y*sc };
 }
 function screenToImg(x,y){
-  // convertit un point écran en pixels image
-  return {
-    x: (x - base.ox - view.panX) / (base.s*view.z),
-    y: (y - base.oy - view.panY) / (base.s*view.z)
-  };
+  const sc = base.s*view.z;
+  return { x: (x - base.ox - view.panX)/sc, y: (y - base.oy - view.panY)/sc };
 }
 
-// zoom/pan interactions
-$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
-$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); };
-$('#btnFit').onclick = ()=> fitAndCenter();
-
-function setZoom(z,cx,cy){
-  const MIN=0.1, MAX=4;
-  z=Math.max(MIN,Math.min(MAX,z));
-  if(cx!=null && cy!=null){
-    const before=screenToImg(cx,cy);
-    view.z=z; applyTransform();
-    const after=imgToScreen(before);
+function setZoom(z, cx, cy){
+  const MIN=0.1, MAX=4; // dézoomer jusqu'à 10%
+  z = Math.max(MIN, Math.min(MAX, z));
+  if (typeof cx === 'number' && typeof cy === 'number'){
+    const before = screenToImg(cx, cy);
+    view.z = z; applyLayout();
+    const after = imgToScreen(before);
     view.panX += (cx - after.x);
     view.panY += (cy - after.y);
   } else {
-    view.z=z;
+    view.z = z; applyLayout();
   }
-  applyTransform(); drawAll();
+  drawAll();
 }
 
-mapContainer.addEventListener('wheel', e=>{
+$('#zPlus').addEventListener('click', ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2));
+$('#zMinus').addEventListener('click', ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2));
+$('#zReset').addEventListener('click', ()=> { view.z=1; applyLayout(); drawAll(); });
+$('#btnFit').addEventListener('click', fitNow);
+
+mapContainer.addEventListener('wheel', (e)=>{
   e.preventDefault();
-  const rect=mapContainer.getBoundingClientRect();
-  setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top);
-},{passive:false});
+  const rect = mapContainer.getBoundingClientRect();
+  setZoom(view.z + (e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top);
+}, {passive:false});
 
 mapContainer.addEventListener('pointerdown', e=>{
-  dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId);
+  dragging=true; dragX=e.clientX; dragY=e.clientY; mapContainer.setPointerCapture(e.pointerId);
 });
 mapContainer.addEventListener('pointermove', e=>{
   if(!dragging) return;
-  view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY;
-  applyTransform(); drawAll();
+  view.panX += e.clientX - dragX;
+  view.panY += e.clientY - dragY;
+  dragX=e.clientX; dragY=e.clientY;
+  applyLayout(); drawAll();
 });
 mapContainer.addEventListener('pointerup', ()=> dragging=false);
 mapContainer.addEventListener('pointercancel', ()=> dragging=false);
 
-/* ========= Dessin ========= */
-let route=null;        // {from:{x,y}, to:{x,y}} en pixels image
-let hotspots=[];       // [{x,y,r,zone}] en pixels image
-let userPos=null;      // {x,y} en pixels image
-let heading=null;      // degrés
+/* ---------- Dessin ---------- */
+let route=null; // {from:{x,y}, to:{x,y}}
+let hotspots=[]; // [{x,y,r,zone}]
+let userPos=null; // {x,y}
+let heading=null; let headingSource='alpha';
 
 function drawAll(){
-  const r=mapContainer.getBoundingClientRect();
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // route
   if(route){
     const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
     ctx.save();
     ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)';
     ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
     ctx.restore();
-    // marqueurs
     const rad=8+4*Math.abs(Math.sin(performance.now()/350));
     ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
     ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke();
   }
 
-  // hotspot destination
   for(const h of hotspots){
     const p=imgToScreen(h);
     ctx.beginPath(); ctx.arc(p.x,p.y,h.r||12,0,Math.PI*2);
     ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
   }
 
-  // utilisateur (si GPS actif)
   if(userPos){
     const p=imgToScreen(userPos);
     ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill();
@@ -368,126 +395,146 @@ function drawAll(){
       ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
       ctx.fillStyle='#2563eb'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len, -Math.PI/6, Math.PI/6); ctx.closePath();
       ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill();
       ctx.restore();
     }
   }
 }
-(function anim(){ drawAll(); requestAnimationFrame(anim); })();
+(function raf(){ requestAnimationFrame(raf); drawAll(); })();
 
-/* ========= Logique : tracer / effacer / pick ========= */
+/* ---------- Actions Trace/Clear/Pick ---------- */
 $('#btnOK').addEventListener('click', ()=>{
-  const dep=$('#zoneSelect').value;
-  const waste=$('#dechetSelect').value.toLowerCase().trim();
+  const dep = $('#zoneSelect').value;
+  const waste = $('#dechetSelect').value.toLowerCase().trim();
 
   let origin=null;
   if(dep && coords[dep]) origin=coords[dep];
   if(!origin && userPos) origin=userPos;
   if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; }
 
-  let best=null, dmin=Infinity;
+  let best=null,dmin=Infinity;
   for(const z in dechetsParZone){
     if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){
-      const dz = Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y);
-      if(dz<dmin){ dmin=dz; best=z; }
+      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y);
+      if(d<dmin){ dmin=d; best=z; }
     }
   }
   if(!best){ toast('Aucune zone pour ce déchet.'); return; }
 
   updateInfoPanel(best);
-  route={from:{...origin}, to:{x:coords[best].x,y:coords[best].y}};
-  hotspots=[{x:coords[best].x,y:coords[best].y,r:12,zone:best}];
+  route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} };
+  hotspots=[{ x:coords[best].x, y:coords[best].y, r:12, zone:best }];
 });
-
 $('#btnClear').addEventListener('click', ()=>{ route=null; hotspots=[]; drawAll(); });
 
-// pick sur la carte
+// Sélection par clic
 let pick=false;
-$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Clique sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
+$('#btnPick').addEventListener('click', ()=>{
+  pick=!pick;
+  $('#btnPick').textContent = pick ? 'Cliquez sur le plan…' : 'Choisir sur le plan';
+  toast(pick ? 'Cliquez un point/zone sur le plan' : 'Sélection par clic désactivée');
+});
 mapContainer.addEventListener('click', e=>{
   if(!pick) return;
-  const rect=mapContainer.getBoundingClientRect();
-  const imgPt=screenToImg(e.clientX-rect.left, e.clientY-rect.top);
+  const r=mapContainer.getBoundingClientRect();
+  const imgPt=screenToImg(e.clientX-r.left, e.clientY-r.top);
   let best=null,dmin=Infinity;
-  Object.keys(coords).forEach(name=>{
-    if(!name.startsWith('Z')){
-      const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y);
-      if(d<dmin){ dmin=d; best=name; }
+  Object.keys(coords).forEach(n=>{
+    if(!n.startsWith('Z')){
+      const c=coords[n], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y);
+      if(d<dmin){ dmin=d; best=n; }
     }
   });
   if(best){
     choicesZone.setChoiceByValue(best);
     $('#zoneSelect').dispatchEvent(new Event('change'));
-    pick=false;
+    pick=false; $('#btnPick').textContent='Choisir sur le plan';
   }
 });
 
-/* ========= GPS + Boussole (sans calibration externe) ========= */
-/* On garde le même barycentrique que ton code d’origine (3 repères).
-   Si tu ne veux PAS projeter la position sur l’image, commente simplement gpsToPixel() et l’affectation userPos=p. */
+/* ---------- GPS + Boussole ---------- */
+/* ⚠️ EXACTEMENT les coordonnées d’ORIGINE pour la projection (barycentrique sur 3 repères) */
 const calibration = [
-  {lat:45.193611, lon:0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12
-  {lat:45.192694, lon:0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5
-  {lat:45.192194, lon:0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y} // MABOR
+  {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12 (origine)
+  {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5  (origine)
+  {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y} // MABOR (origine)
 ];
+
 function gpsToPixel(lat, lon){
   const [P0,P1,P2]=calibration;
   const lat0=P0.lat, lon0=P0.lon;
-  const avgLat=((P0.lat+P1.lat+P2.lat)/3)*Math.PI/180;
-  const kx=111320*Math.cos(avgLat), ky=111320;
-  const px=(lon-lon0)*kx, py=(lat-lat0)*ky;
+  const avg=((P0.lat+P1.lat+P2.lat)/3)*Math.PI/180;
+  const kx=111320*Math.cos(avg), ky=111320;     // conversion degrés -> mètres (approx)
+  const px=(lon-lon0)*kx, py=(lat-lat0)*ky;     // point GPS relatif au repère P0
   const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky;
   const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky;
-  const detT=(y1-y2)*(0- y2)+(x2-x1)*(0- y2); // (x0,y0)=(0,0)
-  function bary(px,py,x0,y0,x1,y1,x2,y2){
-    const det=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2);
-    const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/det;
-    const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/det;
-    const w=1-u-v; return [u,v,w];
-  }
-  const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2);
-  return {x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y};
+
+  // barycentrique (triangle (0,0)-(x1,y1)-(x2,y2))
+  const D=(y1-y2)*(0- x2)+(x2-x1)*(0- y2);
+  const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/D;
+  const v=((y2-0)*(px-x2)+(0 -x2)*(py-y2))/D;
+  const w=1-u-v;
+
+  return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
 }
 
-const chipGps=$('#chipGps'), chipCompass=$('#chipCompass');
-const kpiPos=$('#kpiPos'),  kpiHead=$('#kpiHead');
-let headingSource='alpha';
+const btnGPS=$('#btnGPS'), chipGps=$('#chipGps'), chipCompass=$('#chipCompass');
+const kpiPos=$('#kpiPos'), kpiHead=$('#kpiHead');
+let compassOn=false;
 
 function handleOrient(e){
-  if(typeof e.webkitCompassHeading!=='undefined'){ heading=e.webkitCompassHeading; headingSource='ios'; }
-  else if(typeof e.alpha!=='undefined'){ heading=e.alpha; headingSource='alpha'; }
-  kpiHead.textContent = heading!=null ? (Math.round(heading)+'°') : '—';
+  let h=null;
+  if(typeof e.webkitCompassHeading!=='undefined') h=e.webkitCompassHeading;    // iOS
+  else if(typeof e.alpha!=='undefined') h=e.alpha;                              // Android/desktop
+  if(h!=null){ 
+    kpiHead.textContent=Math.round(h)+'°'; 
+    chipCompass.textContent='Boussole: on';
+    heading=h;
+  }
 }
-function normalizeHeadingRad(raw){ return (headingSource==='ios') ? raw*Math.PI/180 : (raw-90)*Math.PI/180; }
+function normalizeHeadingRad(raw){
+  // si API iOS (webkitCompassHeading): 0°=N; sinon alpha ~0°=Est -> compense
+  return (typeof e !== 'undefined' && typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission)
+    ? raw*Math.PI/180 : (raw-90)*Math.PI/180;
+}
 
-$('#btnGPS').addEventListener('click', ()=>{
+btnGPS.addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('GPS non disponible'); return; }
+
   navigator.geolocation.watchPosition(pos=>{
-    // Projete la position sur l’image (si tu souhaites ne PAS afficher sur l’image, commente les 2 lignes suivantes)
     const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude);
     userPos=p; kpiPos.textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
     chipGps.textContent='GPS: on';
   }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
 
-  // Boussole (autorisation iOS si nécessaire)
-  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(res=>{
-      if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); chipCompass.textContent='Boussole: on'; }
-      else{ chipCompass.textContent='Boussole: refusée'; }
-    }).catch(()=> toast('Boussole indisponible'));
-  }else{
-    window.addEventListener('deviceorientation', handleOrient, true);
-    chipCompass.textContent='Boussole: on';
+  if(!compassOn){
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassOn=true; }
+        else { chipCompass.textContent='Boussole: refusée'; }
+      }).catch(()=>toast('Boussole indisponible'));
+    } else {
+      window.addEventListener('deviceorientation', handleOrient, true);
+      compassOn=true;
+    }
   }
 
-  // Ajoute "Ma localisation" en tête si absent
-  const zoneSelect=$('#zoneSelect');
-  if (![...zoneSelect.options].some(o=>o.value==='Ma localisation')){
-    const opt=new Option('Ma localisation','Ma localisation',true,true);
-    zoneSelect.prepend(opt);
+  // Ajoute "Ma localisation" comme option
+  const sel=$('#zoneSelect');
+  if (![...sel.options].some(o=>o.value==='Ma localisation')){
+    sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
   }
 });
+
+/* ---------- Initialisation ---------- */
+function init(){
+  initChoices();
+  // Image entièrement visible dès l’ouverture
+  if (mapImg.complete && mapImg.naturalWidth) fitNow();
+  else mapImg.addEventListener('load', fitNow, {once:true});
+}
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
