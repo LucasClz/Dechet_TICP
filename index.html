@@ -42,7 +42,6 @@
 
   /* Carte */
   .mapwrap{position:relative;height:70vh;min-height:520px;border-radius:16px;overflow:hidden;background:#0b1020}
-  .stage{position:absolute;inset:0;transform-origin:top left;/* img + overlay bougent ensemble */}
   .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
   canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
 
@@ -77,7 +76,7 @@
           <div class="row">
             <button class="btn small" id="btnGPS">Activer GPS + Boussole</button>
             <button class="btn secondary small" id="btnPick">Choisir sur le plan</button>
-            <!-- Calibration boussole -->
+            <!-- Calibration boussole (facultatif) -->
             <button class="btn secondary small" id="btnCalibrate">Calibrer boussole</button>
             <button class="btn secondary small" id="btnNudgeMinus">-5°</button>
             <button class="btn secondary small" id="btnNudgePlus">+5°</button>
@@ -125,18 +124,16 @@
       </header>
       <div class="content">
         <div class="mapwrap" id="mapContainer">
-          <div class="stage" id="stage">
-            <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
-            <canvas id="overlay"></canvas>
+          <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+          <canvas id="overlay"></canvas>
 
-            <div class="hud">
-              <div class="card">
-                <div class="kpi">Position <strong id="kpiPos">—</strong></div>
-                <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
-                <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
-              </div>
+          <div class="hud">
+            <div class="card">
+              <div class="kpi">Position <strong id="kpiPos">—</strong></div>
+              <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
+              <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
             </div>
-          </div><!-- /stage -->
+          </div>
         </div>
       </div>
     </section>
@@ -230,8 +227,7 @@ function initChoices(){
   $('#zoneSelect').addEventListener('change', e=>{
     updateInfoPanel(e.target.value);
     const types=dechetsParZone[e.target.value]||allTypes;
-    choicesDechet.clearChoices();
-    types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+    choicesDechet.clearChoices(); types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
   });
 }
 function updateInfoPanel(zone){
@@ -242,7 +238,6 @@ function updateInfoPanel(zone){
 
 /* ============ Carte : fit contain + zoom/pan ============ */
 const mapContainer=$('#mapContainer');
-const stage=$('#stage');              // wrapper transformé (img + canvas bougent ensemble)
 const mapImg=$('#mapImage');
 const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
 
@@ -250,43 +245,44 @@ let base={s:1,ox:0,oy:0,iw:1,ih:1};   // fit contain
 let view={z:1, panX:0, panY:0};       // zoom/pan
 let dragging=false, lx=0, ly=0;
 
-function computeFit(){
+function applyLayout(){
   const r=mapContainer.getBoundingClientRect();
   canvas.width=r.width; canvas.height=r.height;
+
   base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
   const s=Math.min(r.width/base.iw, r.height/base.ih); // ENTIEREMENT visible
   base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
-}
-function applyTransform(){
-  stage.style.transform=`translate(${base.ox+view.panX}px,${base.oy+view.panY}px) scale(${base.s*view.z})`;
-  stage.style.transformOrigin='top left';
-  mapImg.style.width=base.iw+'px'; mapImg.style.height=base.ih+'px';
+
+  mapImg.style.width=(base.iw*base.s*view.z)+'px';
+  mapImg.style.height=(base.ih*base.s*view.z)+'px';
+  mapImg.style.left=(base.ox+view.panX)+'px';
+  mapImg.style.top=(base.oy+view.panY)+'px';
+
   $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
 }
-function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); }
+function fitAndCenter(){ view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
 
-new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
-mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
-if (mapImg.complete) setTimeout(fitAndCenter,0); // si image en cache
+new ResizeObserver(applyLayout).observe(mapContainer);
+mapImg.addEventListener('load', applyLayout);
+if (mapImg.complete) setTimeout(applyLayout,0);
 
-function imgToScreen(pt){ return { x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z) }; }
-function screenToImg(x,y){ return { x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z) }; }
+function imgToScreen(pt){ return { x: (base.ox+view.panX)+pt.x*(base.s*view.z), y: (base.oy+view.panY)+pt.y*(base.s*view.z) }; }
+function screenToImg(x,y){ return { x: (x-base.ox-view.panX)/(base.s*view.z), y: (y-base.oy-view.panY)/(base.s*view.z) }; }
 
 function setZoom(z,cx,cy){
   const MIN=0.1, MAX=4;
   z=Math.max(MIN,Math.min(MAX,z));
   if(typeof cx==='number' && typeof cy==='number'){
     const before=screenToImg(cx,cy);
-    view.z=z; applyTransform();
+    view.z=z; applyLayout();
     const after=imgToScreen(before);
-    view.panX += (cx - after.x);
-    view.panY += (cy - after.y);
-  } else { view.z=z; }
-  applyTransform(); drawAll();
+    view.panX += (cx - after.x); view.panY += (cy - after.y);
+  } else { view.z=z; applyLayout(); }
+  drawAll();
 }
 $('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
 $('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); };
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
 $('#btnFit').onclick = ()=> fitAndCenter();
 
 mapContainer.addEventListener('wheel', e=>{
@@ -301,7 +297,7 @@ mapContainer.addEventListener('pointerdown', e=>{
 mapContainer.addEventListener('pointermove', e=>{
   if(!dragging) return;
   view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY;
-  applyTransform(); drawAll();
+  applyLayout(); drawAll();
 });
 mapContainer.addEventListener('pointerup', ()=> dragging=false);
 mapContainer.addEventListener('pointercancel', ()=> dragging=false);
@@ -310,13 +306,12 @@ mapContainer.addEventListener('pointercancel', ()=> dragging=false);
 let route=null;        // {from:{x,y}, to:{x,y}}
 let hotspots=[];       // [{x,y,r,zone}]
 let userPos=null;      // {x,y}
-let headingDegRaw=null, headingSource='unknown'; // boussole
+let headingDegRaw=null, headingSource='unknown';
 let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
 
 function drawAll(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Route
   if(route){
     const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
     ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)';
@@ -326,20 +321,18 @@ function drawAll(){
     ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke();
   }
 
-  // Hotspots
   for(const h of hotspots){
     const p=imgToScreen(h);
     ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
   }
 
-  // Utilisateur + cône de cap
   if(userPos){
     const p=imgToScreen(userPos);
     ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill();
     ctx.strokeStyle='#065f46'; ctx.stroke();
     const angRad = normalizedHeadingRad();
     if(angRad!=null){
-      const ang=angRad - Math.PI/2;
+      const ang=angRad - Math.PI/2; // même rendu que ton code d’origine
       const len=80;
       ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
@@ -398,140 +391,93 @@ mapContainer.addEventListener('click', e=>{
 });
 
 /* ============ GPS + Boussole ============ */
-/* Calibration GPS : EXACTEMENT points d’origine + votre ajout Z11 */
+/* ⚠️ Projection GPS = EXACTEMENT celle d’ORIGINE (barycentrique 3 points) */
 const calibration = [
-  {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12 (origine)
-  {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5  (origine)
-  {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y},// MABOR (origine)
-  {lat: 45.192385, lon: 0.704037, x: coords["Z11"].x,   y: coords["Z11"].y}  // Z11 (NOUVEAU)
+  {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12
+  {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5
+  {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y} // MABOR
 ];
+function gpsToPixel(lat, lon){
+  const [P0, P1, P2] = calibration;
+  const lat0 = P0.lat, lon0 = P0.lon;
+  const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
+  const kx = 111320 * Math.cos(avgLat); // m/deg
+  const ky = 111320;                     // m/deg
 
-/* Projection lat/lon → mètres (locale) puis affine (moindres carrés) → pixels */
-function makeGpsProjector() {
-  // métrique locale
-  const avgLat = calibration.reduce((s,p)=>s+p.lat,0)/calibration.length * Math.PI/180;
-  const kx = 111320 * Math.cos(avgLat);
-  const ky = 111320;
-  const lat0 = calibration[0].lat, lon0 = calibration[0].lon;
-
-  // A*[ax bx cx]^T ≈ x  et  A*[ay by cy]^T ≈ y  avec A=[X Y 1]
-  const A = [], bx = [], by = [];
-  calibration.forEach(p=>{
-    const X = (p.lon - lon0) * kx;
-    const Y = (p.lat - lat0) * ky;
-    A.push([X, Y, 1]);
-    bx.push(p.x); by.push(p.y);
-  });
-
-  function normalEq(A, b){
-    // AT*A (3x3) et AT*b (3x1)
-    const AT = [[0,0,0],[0,0,0],[0,0,0]];
-    for(let r=0;r<A.length;r++){ AT[0][r]=A[r][0]; AT[1][r]=A[r][1]; AT[2][r]=A[r][2]; }
-    const ATA = Array.from({length:3},()=>Array(3).fill(0));
-    const ATb = Array(3).fill(0);
-    for(let i=0;i<3;i++){
-      for(let j=0;j<3;j++){
-        let s=0; for(let k=0;k<A.length;k++) s += AT[i][k]*A[k][j]; ATA[i][j]=s;
-      }
-      let sb=0; for(let k=0;k<A.length;k++) sb += AT[i][k]*b[k]; ATb[i]=sb;
-    }
-    return solve3x3(ATA, ATb); // renvoie [a,b,c]
+  // barycentrique dans le triangle (0,0)-(x1,y1)-(x2,y2)
+  function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
+    const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
+    const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
+    const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
+    const w = 1 - u - v;
+    return [u, v, w];
   }
-  function det3(m){ return m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1]) - m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0]) + m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]); }
-  function solve3x3(M, v){
-    const d = det3(M);
-    if (Math.abs(d) < 1e-9) return [0,0,0];
-    const sol = [];
-    for(let i=0;i<3;i++){
-      const Mi = M.map(row=>row.slice());
-      for(let r=0;r<3;r++) Mi[r][i] = v[r];
-      sol.push(det3(Mi)/d);
-    }
-    return sol;
-  }
-
-  const [ax,bx_,cx] = normalEq(A, bx);
-  const [ay,by_,cy] = normalEq(A, by);
-
-  return function gpsToPixel(lat, lon){
-    const X = (lon - lon0) * kx;
-    const Y = (lat - lat0) * ky;
-    return { x: ax*X + bx_*Y + cx, y: ay*X + by_*Y + cy };
-  };
+  const px = (lon - lon0) * kx;
+  const py = (lat - lat0) * ky;
+  const x0 = 0, y0 = 0;
+  const x1 = (P1.lon - lon0) * kx, y1 = (P1.lat - lat0) * ky;
+  const x2 = (P2.lon - lon0) * kx, y2 = (P2.lat - lat0) * ky;
+  const [u, v, w] = barycentric(px, py, x0, y0, x1, y1, x2, y2);
+  return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
 }
-const gpsToPixel = makeGpsProjector();
 
-/* Boussole : normalisation + calibration utilisateur */
+/* Boussole normalisée + calibration utilisateur (facultative) */
 function screenOrientationAngle(){
-  const a = (screen.orientation && typeof screen.orientation.angle==='number')
-    ? screen.orientation.angle
-    : (typeof window.orientation==='number' ? window.orientation : 0);
+  const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
   return ((a%360)+360)%360;
 }
 function normalizedHeadingDeg(){
   if (headingDegRaw==null) return null;
   let h;
-  if (headingSource==='ios'){ h = headingDegRaw; }
-  else { h = 360 - headingDegRaw; h += screenOrientationAngle(); }
-  h += compassOffsetDeg;
+  if (headingSource==='ios'){ h=headingDegRaw; }
+  else { h=360-headingDegRaw; h+=screenOrientationAngle(); }
+  h+=compassOffsetDeg;
   return ((h%360)+360)%360;
 }
-function normalizedHeadingRad(){
-  const d = normalizedHeadingDeg();
-  return d==null ? null : d*Math.PI/180;
-}
+function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
 function handleOrient(e){
-  if (typeof e.webkitCompassHeading === 'number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; }
-  else if (typeof e.alpha === 'number')           { headingDegRaw=e.alpha;             headingSource='alpha'; }
-  const chipCompass=$('#chipCompass'), kpiHead=$('#kpiHead');
-  const h = normalizedHeadingDeg();
-  if (h==null){ chipCompass.textContent='Boussole: off'; kpiHead.textContent='—'; }
-  else { chipCompass.textContent=`Boussole: on (${Math.round(compassOffsetDeg)}°)`; kpiHead.textContent=Math.round(h)+'°'; }
+  if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; }
+  else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; }
+  const h=normalizedHeadingDeg();
+  $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`;
+  $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°');
 }
 function calibrateCompassToZero(){
-  const h = normalizedHeadingDeg() ?? headingDegRaw;
-  if (h==null){ toast('Boussole indisponible, bougez légèrement le téléphone puis réessayez.'); return; }
-  compassOffsetDeg = (-h%360+360)%360;
-  localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
+  const h=normalizedHeadingDeg() ?? headingDegRaw;
+  if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; }
+  compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
   toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`);
 }
-function nudgeOffset(delta){
-  compassOffsetDeg = ((compassOffsetDeg+delta)%360+360)%360;
-  localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
-}
+function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
 $('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
 $('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
 $('#btnNudgePlus').addEventListener('click', ()=>{ nudgeOffset(+5); toast('Offset +5°'); });
 
-function enableCompassOnce(){
-  if (typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(res=>{
-      if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); $('#chipCompass').textContent=`Boussole: on (${Math.round(compassOffsetDeg)}°)`; }
-      else { $('#chipCompass').textContent='Boussole: refusée'; }
-    }).catch(()=> toast('Boussole indisponible'));
-  } else {
-    window.addEventListener('deviceorientation', handleOrient, true);
-    $('#chipCompass').textContent=`Boussole: on (${Math.round(compassOffsetDeg)}°)`;
-  }
-  if (screen.orientation && typeof screen.orientation.addEventListener==='function'){
-    screen.orientation.addEventListener('change', handleOrient);
-  } else {
-    window.addEventListener('orientationchange', handleOrient);
-  }
-}
-
-/* Bouton GPS + Boussole */
+let watchId=null, compassEnabled=false;
 $('#btnGPS').addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('GPS non disponible'); return; }
-  navigator.geolocation.watchPosition(pos=>{
-    const p = gpsToPixel(pos.coords.latitude, pos.coords.longitude);
-    userPos = p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
-    $('#chipGps').textContent='GPS: on';
-  }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
+  if(watchId==null){
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+      userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
+      $('#chipGps').textContent='GPS: on';
+    }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
+  }
+  if(!compassEnabled){
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
+        else { $('#chipCompass').textContent='Boussole: refusée'; }
+      }).catch(()=> toast('Boussole indisponible'));
+    }else{
+      window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true;
+    }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){
+      screen.orientation.addEventListener('change', handleOrient);
+    } else { window.addEventListener('orientationchange', handleOrient); }
+  }
 
-  enableCompassOnce();
-
-  // Ajoute "Ma localisation" dans la liste si absent
+  // Ajoute "Ma localisation"
   const sel=$('#zoneSelect');
   if (![...sel.options].some(o=>o.value==='Ma localisation')){
     sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
@@ -539,10 +485,7 @@ $('#btnGPS').addEventListener('click', ()=>{
 });
 
 /* ============ Init ============ */
-function init(){
-  initChoices();
-  fitAndCenter(); // image en entier dès l’ouverture
-}
+function init(){ initChoices(); fitAndCenter(); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
