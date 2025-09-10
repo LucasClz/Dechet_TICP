@@ -26,8 +26,9 @@
   .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
   .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
   .btn.toggle.on{background:#111827;color:#fff;box-shadow:none}
+  .btn.danger{background:#ef4444;color:#fff;border:1px solid #ef4444}
+  .btn.danger:hover{background:#dc2626}
 
-  /* Panneau au-dessus (mobile), tiroir (desktop) */
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 0 16px 16px;box-shadow:0 10px 30px rgba(2,8,23,.06);margin:0 0 12px 0}
   .panel>header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
   .panel>.content{padding:12px 14px}
@@ -38,7 +39,6 @@
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   select,.choices__inner{width:100%}
 
-  /* Carte */
   .mapwrap{position:relative;width:100%;background:#0b1020}
   .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
   canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
@@ -52,7 +52,6 @@
   .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* Desktop : carte plein écran, panneau tiroir */
   @media (min-width:1025px){
     .mapwrap{height:calc(100vh - 64px)}
     .panel{
@@ -70,7 +69,6 @@
     .panel .close{ display:none }
   }
 
-  /* === MODAL FICHE ZONE === */
   .modal-backdrop{position:fixed;inset:0;background:rgba(2,8,23,.42);backdrop-filter:blur(2px);display:none;z-index:60}
   .modal{position:fixed;right:0;top:0;height:100%;width:min(560px,94vw);background:#fff;border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(2,8,23,.25);transform:translateX(100%);transition:transform .25s ease;z-index:70;display:flex;flex-direction:column}
   .modal.open + .modal-backdrop{display:block}
@@ -81,11 +79,9 @@
   .crit .checks{display:flex;gap:8px}
   .crit small{color:var(--muted)}
   .checks input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
-  .note{font-weight:700}
   .thumb{width:100%;max-height:200px;object-fit:contain;border:1px dashed var(--line);border-radius:10px}
   .muted{color:var(--muted);font-size:12px}
 
-  /* === MODAL STATS === */
   .modal.stats{width:min(720px,96vw)}
   .barrow{display:grid;grid-template-columns:120px 1fr 54px;gap:8px;align-items:center}
   .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
@@ -104,6 +100,8 @@
       <div class="row">
         <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
         <button class="btn secondary small" id="btnOpenStats">Graphiques</button>
+        <button class="btn secondary small" id="btnExportXls" title="Exporter la tournée au format .xls">Exporter XLS</button>
+        <button class="btn danger small" id="btnResetAll" title="Tout remettre à zéro">Réinitialiser</button>
         <span class="chip" id="chipGps">GPS: off</span>
         <span class="chip" id="chipCompass">Boussole: off</span>
       </div>
@@ -111,7 +109,6 @@
   </header>
 
   <main>
-    <!-- Panneau AU-DESSUS (mobile), tiroir (desktop) -->
     <section class="panel" id="panel">
       <header>
         Navigation & Recherche
@@ -153,7 +150,6 @@
       </div>
     </section>
 
-    <!-- Carte -->
     <section class="mapwrap" id="mapContainer">
       <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
       <canvas id="overlay"></canvas>
@@ -176,7 +172,7 @@
   </main>
 </div>
 
-<!-- === MODAL FICHE ZONE === -->
+<!-- MODAL FICHE -->
 <section class="modal" id="zoneModal" aria-hidden="true">
   <header>
     <div>
@@ -190,45 +186,31 @@
     </div>
   </header>
   <div class="content grid" id="formContainer">
-    <!-- Critères -->
-    <div class="crit">
-      <div>Propreté de la zone<br/><small>sur 10 points</small></div>
+    <div class="crit"><div>Propreté de la zone<br/><small>sur 10 points</small></div>
       <div class="checks" data-max="10" data-key="proprete">
-        <input type="checkbox" aria-label="100%"/><input type="checkbox" aria-label="75%"/><input type="checkbox" aria-label="50%"/><input type="checkbox" aria-label="25%"/>
-      </div>
-    </div>
-    <div class="crit">
-      <div>Présence/état des affiches<br/><small>sur 10 points</small></div>
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>Présence/état des affiches<br/><small>sur 10 points</small></div>
       <div class="checks" data-max="10" data-key="affiches">
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
-      </div>
-    </div>
-    <div class="crit">
-      <div>Accessibilité des contenants<br/><small>sur 10 points</small></div>
+      </div></div>
+    <div class="crit"><div>Accessibilité des contenants<br/><small>sur 10 points</small></div>
       <div class="checks" data-max="10" data-key="accessibilite">
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
-      </div>
-    </div>
-    <div class="crit">
-      <div>Respect du tri<br/><small>sur 40 points</small></div>
+      </div></div>
+    <div class="crit"><div>Respect du tri<br/><small>sur 40 points</small></div>
       <div class="checks" data-max="40" data-key="tri">
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
-      </div>
-    </div>
-    <div class="crit">
-      <div>État des bennes de déchets<br/><small>sur 20 points</small></div>
+      </div></div>
+    <div class="crit"><div>État des bennes de déchets<br/><small>sur 20 points</small></div>
       <div class="checks" data-max="20" data-key="bennes">
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
-      </div>
-    </div>
-    <div class="crit">
-      <div>Départ des contenants<br/><small>sur 10 points</small></div>
+      </div></div>
+    <div class="crit"><div>Départ des contenants<br/><small>sur 10 points</small></div>
       <div class="checks" data-max="10" data-key="depart">
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
-      </div>
-    </div>
+      </div></div>
 
-    <!-- Photo + commentaire -->
     <div class="field">
       <label>Photo de la zone</label>
       <input type="file" id="photoInput" accept="image/*" capture="environment"/>
@@ -248,7 +230,7 @@
 </section>
 <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
 
-<!-- === MODAL STATS / GRAPHIQUES === -->
+<!-- MODAL STATS -->
 <section class="modal stats" id="statsModal" aria-hidden="true">
   <header>
     <div style="font-weight:700">Taux de conformité par groupe</div>
@@ -277,40 +259,40 @@
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 
-/* ===== Panneau (desktop tiroir) ===== */
+/* ===== Panneau ===== */
 const panel = $('#panel');
 $('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
 $('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
 /* ===== Données ===== */
-const coords = {
-  "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
-  "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
-  "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
-  "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
-  "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
-  "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
-  "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
-  "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
-  "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
-  "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
-  "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
-  "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
-  "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
-  "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
-  "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
-  "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
-  "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
-  "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
-  "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
-  "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
-  "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
-  "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
-  "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
-  "Bureau Administratif":{x:1524,y:152}
+const coords = {/* … mêmes coordonnées que précédemment … */ 
+"MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+"MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+"MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+"MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+"MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+"MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+"MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+"PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+"PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+"PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+"PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+"SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+"SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+"MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+"Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+"Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+"Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+"Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+"Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+"Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+"Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+"Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+"Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
+"Bureau Administratif":{x:1524,y:152}
 };
 
-const dechetsParZone = { 
+const dechetsParZone = {/* idem que précédemment */ 
   Z1:["Bois","Carton","Bac noir","Plastique"],
   Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
   Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
@@ -344,16 +326,16 @@ const dechetsParZone = {
   Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
 };
 
-/* ===== Groupes ===== */
+/* Groupes */
 const GROUPS = {
-  BA:  ["Z5","Z12","Z19"], // "212" interprété comme Z12
-  MR:  ["Z3","Z14","Z17","Z18","Z20","Z21","Z22","Z23","Z24","Z25","Z26","Z27","Z28","Z29","Z30","Z31","Z33","Z34"],
-  MTN: ["Z16"],
-  SC:  ["Z1","Z4","Z6","Z7","Z8","Z35"],
-  PRM: ["Z2","Z9","Z10","Z11","Z13","Z15","Z32"],
+  BA:["Z5","Z12","Z19"],
+  MR:["Z3","Z14","Z17","Z18","Z20","Z21","Z22","Z23","Z24","Z25","Z26","Z27","Z28","Z29","Z30","Z31","Z33","Z34"],
+  MTN:["Z16"],
+  SC:["Z1","Z4","Z6","Z7","Z8","Z35"],
+  PRM:["Z2","Z9","Z10","Z11","Z13","Z15","Z32"],
 };
 
-/* ===== UI : selects & liste ===== */
+/* ===== UI : selects ===== */
 let choicesZone, choicesDechet;
 function initChoices(){
   choicesZone   = new Choices($('#zoneSelect'),   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
@@ -378,100 +360,56 @@ function updateInfoPanel(zone){
   if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
 }
 
-/* ===== Carte : fit contain + zoom/pan ===== */
+/* ===== Carte / zoom-pan ===== */
 const mapContainer=$('#mapContainer');
 const mapImg=$('#mapImage');
 const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
-
-let base={s:1,ox:0,oy:0,iw:1,ih:1};
-let view={z:1, panX:0, panY:0};
+let base={s:1,ox:0,oy:0,iw:1,ih:1}; let view={z:1, panX:0, panY:0};
 let dragging=false, lx=0, ly=0;
-
-function computeFit(){
-  const r=mapContainer.getBoundingClientRect();
-  canvas.width=r.width; canvas.height=r.height;
-  base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
-  const s=Math.min(r.width/base.iw, r.height/base.ih);
-  base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
-}
-function applyLayout(){
-  const w = base.iw*base.s*view.z;
-  const h = base.ih*base.s*view.z;
-  mapImg.style.width  = w+'px'; mapImg.style.height = h+'px';
-  mapImg.style.left   = (base.ox+view.panX)+'px'; mapImg.style.top = (base.oy+view.panY)+'px';
-  $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
-}
+function computeFit(){ const r=mapContainer.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1; const s=Math.min(r.width/base.iw, r.height/base.ih); base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2; }
+function applyLayout(){ const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z; mapImg.style.width=w+'px'; mapImg.style.height=h+'px'; mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px'; $('#kpiZoom').textContent=Math.round(view.z*100)+'%'; }
 function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
-
 new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
 mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
 if (mapImg.complete) setTimeout(fitAndCenter,0);
-
-function imgToScreen(pt){ return { x: (base.ox+view.panX) + pt.x*(base.s*view.z), y: (base.oy+view.panY) + pt.y*(base.s*view.z) }; }
-function screenToImg(x,y){ return { x: (x - base.ox - view.panX) / (base.s*view.z), y: (y - base.oy - view.panY) / (base.s*view.z) }; }
-
-function setZoom(z,cx,cy){
-  const MIN=0.1, MAX=4; z=Math.max(MIN,Math.min(MAX,z));
-  if(typeof cx==='number' && typeof cy==='number'){
-    const before=screenToImg(cx,cy); view.z=z; applyLayout();
-    const after=imgToScreen(before); view.panX += (cx - after.x); view.panY += (cy - after.y);
-  } else { view.z=z; }
-  applyLayout(); drawAll();
-}
-$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
-$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
-$('#btnFit').onclick = ()=> fitAndCenter();
-
+function imgToScreen(pt){ return {x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z)}; }
+function screenToImg(x,y){ return {x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z)}; }
+function setZoom(z,cx,cy){ const MIN=0.1, MAX=4; z=Math.max(MIN,Math.min(MAX,z)); if(typeof cx==='number'){ const before=screenToImg(cx,cy); view.z=z; applyLayout(); const after=imgToScreen(before); view.panX += (cx-after.x); view.panY += (cy-after.y); } else view.z=z; applyLayout(); drawAll(); }
+$('#zPlus').onclick=()=>setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
+$('#zMinus').onclick=()=>setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
+$('#zReset').onclick=()=>{ view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
+$('#btnFit').onclick=()=>fitAndCenter();
 mapContainer.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId); });
-mapContainer.addEventListener('pointermove', e=>{ if(!dragging)return; view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
-mapContainer.addEventListener('pointerup', ()=> dragging=false);
-mapContainer.addEventListener('pointercancel', ()=> dragging=false);
-mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const r=mapContainer.getBoundingClientRect(); setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-r.left, e.clientY-r.top); },{passive:false});
+mapContainer.addEventListener('pointermove', e=>{ if(!dragging)return; view.panX+=e.clientX-lx; view.panY+=e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
+mapContainer.addEventListener('pointerup', ()=>dragging=false);
+mapContainer.addEventListener('pointercancel', ()=>dragging=false);
+mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const r=mapContainer.getBoundingClientRect(); setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-r.left, e.clientY-r.top); }, {passive:false});
 
-/* ===== Dessin ===== */
-let route=null; let hotspots=[]; let userPos=null;
-let headingDegRaw=null, headingSource='unknown';
-let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
-const zonePoints = Object.keys(coords).filter(k=>/^Z\d+/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-
-const STORE_KEY='zoneReports.v2'; // include gravité + /100
-let reports = {}; try{ reports = JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{}; }catch{ reports={} }
-function isZoneDone(z){ return !!reports[z]; }
+/* ===== Dessin + état ===== */
+let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
+const zonePoints=Object.keys(coords).filter(k=>/^Z\d+/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
+const STORE_KEY='zoneReports.v2';
+let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const isZoneDone=z=>!!reports[z];
 
 function drawAll(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(route){
-    const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
-    ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)';
-    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore();
+  if(route){ const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
+    ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)'; ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore();
     const rad=8+4*Math.abs(Math.sin(performance.now()/350));
     ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
     ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke();
   }
-
   for(const zp of zonePoints){
     const p=imgToScreen(zp);
-    ctx.beginPath(); ctx.arc(p.x,p.y,zp.r,0,Math.PI*2);
-    ctx.lineWidth=3; ctx.strokeStyle = isZoneDone(zp.zone)?'#10b981':'#ef4444';
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2);
-    ctx.fillStyle = isZoneDone(zp.zone)?'rgba(16,185,129,.6)':'rgba(239,68,68,.5)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,zp.r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle=isZoneDone(zp.zone)?'#10b981':'#ef4444'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fillStyle=isZoneDone(zp.zone)?'rgba(16,185,129,.6)':'rgba(239,68,68,.5)'; ctx.fill();
   }
-
-  for(const h of hotspots){
-    const p=imgToScreen(h);
-    ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
-  }
-
+  for(const h of hotspots){ const p=imgToScreen(h); ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke(); }
   if(userPos){
     const p=imgToScreen(userPos);
     ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill(); ctx.strokeStyle='#065f46'; ctx.stroke();
-    const angRad = normalizedHeadingRad();
-    if(angRad!=null){
-      const ang=angRad - Math.PI/2; const len=80;
-      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
+    const angRad=normalizedHeadingRad(); if(angRad!=null){ const ang=angRad-Math.PI/2, len=80; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath(); ctx.fillStyle='#2563eb'; ctx.fill();
       ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath(); ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill();
       ctx.restore();
@@ -480,115 +418,44 @@ function drawAll(){
 }
 (function loop(){ requestAnimationFrame(loop); drawAll(); })();
 
-/* ===== Tracer / Effacer / Pick ===== */
+/* ===== Tracer / Pick ===== */
 $('#btnOK').addEventListener('click', ()=>{
-  const dep=$('#zoneSelect').value;
-  const waste=$('#dechetSelect').value.toLowerCase().trim();
-
-  let origin=null;
-  if(dep && coords[dep]) origin=coords[dep];
-  if(!origin && userPos) origin=userPos;
+  const dep=$('#zoneSelect').value; const waste=$('#dechetSelect').value.toLowerCase().trim();
+  let origin=null; if(dep && coords[dep]) origin=coords[dep]; if(!origin && userPos) origin=userPos;
   if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; }
-
   let best=null,dmin=Infinity;
   for(const z in dechetsParZone){
     if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){
-      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y);
-      if(d<dmin){ dmin=d; best=z; }
+      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y); if(d<dmin){ dmin=d; best=z; }
     }
   }
   if(!best){ toast('Aucune zone pour ce déchet.'); return; }
-
   updateInfoPanel(best);
-  route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} };
-  hotspots=[{ x:coords[best].x, y:coords[best].y, r:12, zone:best }];
+  route={from:{...origin}, to:{x:coords[best].x, y:coords[best].y}}; hotspots=[{x:coords[best].x,y:coords[best].y,r:12,zone:best}];
 });
 $('#btnClear').addEventListener('click', ()=>{ route=null; hotspots=[]; drawAll(); });
-
-let pick=false;
-$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
+let pick=false; $('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
 mapContainer.addEventListener('click', e=>{
-  const r=mapContainer.getBoundingClientRect();
-  const sx = e.clientX - r.left, sy = e.clientY - r.top;
-
+  const r=mapContainer.getBoundingClientRect(); const sx=e.clientX-r.left, sy=e.clientY-r.top;
   if(pick){
-    const imgPt=screenToImg(sx, sy);
-    let best=null,dmin=Infinity;
-    Object.keys(coords).forEach(name=>{
-      if(!/^Z\d+/i.test(name)){
-        const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y);
-        if(d<dmin){ dmin=d; best=name; }
-      }
-    });
-    if(best){
-      choicesZone.setChoiceByValue(best);
-      $('#zoneSelect').dispatchEvent(new Event('change'));
-      pick=false; return;
-    }
+    const imgPt=screenToImg(sx,sy); let best=null,dmin=Infinity;
+    Object.keys(coords).forEach(name=>{ if(!/^Z\d+/i.test(name)){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; best=name; } }});
+    if(best){ choicesZone.setChoiceByValue(best); $('#zoneSelect').dispatchEvent(new Event('change')); pick=false; return; }
   }
-
-  const nearest = getNearestZoneAtScreenPoint(sx, sy);
-  if(nearest && nearest.dist <= 20){ openZoneForm(nearest.zone); }
+  const nearest=getNearestZoneAtScreenPoint(sx,sy); if(nearest && nearest.dist<=20){ openZoneForm(nearest.zone); }
 });
-function getNearestZoneAtScreenPoint(sx, sy){
-  let best=null, dmin=Infinity;
-  for(const zp of zonePoints){
-    const p=imgToScreen(zp);
-    const d=Math.hypot(sx-p.x, sy-p.y);
-    if(d<dmin){ dmin=d; best=zp.zone; }
-  }
-  return best?{zone:best, dist:dmin}:null;
-}
+function getNearestZoneAtScreenPoint(sx,sy){ let best=null,dmin=Infinity; for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } } return best?{zone:best,dist:dmin}:null; }
 
 /* ===== GPS + Boussole ===== */
-const calibration = [
-  {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y},
-  {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},
-  {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y}
-];
-function gpsToPixel(lat, lon) {
-  const [P0, P1, P2] = calibration;
-  const lat0 = P0.lat, lon0 = P0.lon;
-  const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
-  const kx = 111320 * Math.cos(avgLat), ky = 111320;
-  function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
-    const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
-    const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
-    const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
-    const w = 1 - u - v;
-    return [u, v, w];
-  }
-  const px = (lon - lon0) * kx; const py = (lat - lat0) * ky;
-  const x1 = (P1.lon - lon0) * kx, y1 = (P1.lat - lat0) * ky;
-  const x2 = (P2.lon - lon0) * kx, y2 = (P2.lat - lat0) * ky;
-  const [u, v, w] = barycentric(px, py, 0, 0, x1, y1, x2, y2);
-  return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
-}
-function screenOrientationAngle(){
-  const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
-  return ((a%360)+360)%360;
-}
-function normalizedHeadingDeg(){
-  if (headingDegRaw==null) return null;
-  let h;
-  if (headingSource==='ios'){ h=headingDegRaw; }
-  else { h=360-headingDegRaw; h+=screenOrientationAngle(); }
-  h+=compassOffsetDeg; return ((h%360)+360)%360;
-}
+const calibration=[{lat:45.193611,lon:0.705167,x:coords["Z12"].x,y:coords["Z12"].y},{lat:45.192694,lon:0.706000,x:coords["Z5"].x,y:coords["Z5"].y},{lat:45.192194,lon:0.706083,x:coords["MABOR"].x,y:coords["MABOR"].y}];
+function gpsToPixel(lat,lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3*Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320;
+  function bary(px,py,x0,y0,x1,y1,x2,y2){ const detT=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/detT; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/detT; const w=1-u-v; return [u,v,w]; }
+  const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky; const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return {x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y}; }
+function screenOrientationAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
+function normalizedHeadingDeg(){ if(headingDegRaw==null) return null; let h; if(headingSource==='ios'){ h=headingDegRaw; } else { h=360-headingDegRaw; h+=screenOrientationAngle(); } h+=compassOffsetDeg; return ((h%360)+360)%360; }
 function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
-function handleOrient(e){
-  if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; }
-  else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; }
-  const h=normalizedHeadingDeg();
-  $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`;
-  $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°');
-}
-function calibrateCompassToZero(){
-  const h=normalizedHeadingDeg() ?? headingDegRaw;
-  if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; }
-  compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
-  toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`);
-}
+function handleOrient(e){ if(typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; } else if(typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; } const h=normalizedHeadingDeg(); $('#chipCompass').textContent=h==null?'Boussole: off':`Boussole: on (${Math.round(compassOffsetDeg)}°)`; $('#kpiHead').textContent=h==null?'—':(Math.round(h)+'°'); }
+function calibrateCompassToZero(){ const h=normalizedHeadingDeg() ?? headingDegRaw; if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; } compassOffsetDeg=(( -h )%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`); }
 function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
 $('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
 $('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
@@ -612,42 +479,33 @@ $('#btnGPS').addEventListener('click', ()=>{
     }else{
       window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true;
     }
-    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){
-      screen.orientation.addEventListener('change', handleOrient);
-    } else { window.addEventListener('orientationchange', handleOrient); }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); }
+    else { window.addEventListener('orientationchange', handleOrient); }
   }
-  const sel=$('#zoneSelect');
-  if (![...sel.options].some(o=>o.value==='Ma localisation')) sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
+  const sel=$('#zoneSelect'); if (![...sel.options].some(o=>o.value==='Ma localisation')) sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
   if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
 });
 
 /* ===== FICHE ZONE ===== */
-const modal = $('#zoneModal'), backdrop=$('#modalBackdrop');
-const titleEl = $('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
-const checksContainers = ()=>[...document.querySelectorAll('.checks')];
-let currentZone=null; let gravite=false;
+const modal=$('#zoneModal'), backdrop=$('#modalBackdrop');
+const titleEl=$('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
+const checksContainers=()=>[...document.querySelectorAll('.checks')];
+let currentZone=null, gravite=false;
 
 function openZoneForm(zone){
   currentZone=zone; gravite=false; $('#btnGravite').classList.remove('on');
-  titleEl.textContent = `Fiche • ${zone}`;
-  subEl.textContent = (dechetsParZone[zone]||[]).length ? `Déchets: ${dechetsParZone[zone].join(', ')}` : 'Aucun type déclaré';
-
-  checksContainers().forEach(c => [...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
-  $('#photoPreview').style.display='none'; $('#photoPreview').src='';
-  $('#photoInput').value=''; $('#photoComment').value='';
-
-  const saved = reports[zone];
+  titleEl.textContent=`Fiche • ${zone}`;
+  subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
+  checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
+  $('#photoPreview').style.display='none'; $('#photoPreview').src=''; $('#photoInput').value=''; $('#photoComment').value='';
+  const saved=reports[zone];
   if(saved){
-    const idxByKey = saved.scores||{};
-    checksContainers().forEach(c=>{
-      const key=c.dataset.key, idx=idxByKey[key];
-      if(Number.isInteger(idx) && idx>=0 && idx<=3){ c.querySelectorAll('input')[idx].checked=true; }
-    });
+    const idxByKey=saved.scores||{};
+    checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
     if(saved.photo){ $('#photoPreview').src=saved.photo; $('#photoPreview').style.display='block'; }
     if(saved.comment){ $('#photoComment').value=saved.comment; }
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
   }
-
   updateTotalChip();
   modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); backdrop.style.display='block';
 }
@@ -655,137 +513,149 @@ function closeZoneForm(){ modal.classList.remove('open'); modal.setAttribute('ar
 $('#btnCloseModal').addEventListener('click', closeZoneForm);
 backdrop.addEventListener('click', closeZoneForm);
 
-document.getElementById('btnGravite').addEventListener('click', ()=>{
-  gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite);
-  updateTotalChip();
-});
-
-document.addEventListener('change', (e)=>{
+document.getElementById('btnGravite').addEventListener('click', ()=>{ gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
+document.addEventListener('change', e=>{
   const cb=e.target;
   if(cb.matches('.checks input[type="checkbox"]')){
-    const group = cb.closest('.checks');
-    const boxes = [...group.querySelectorAll('input')];
+    const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')];
     if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); }
     updateTotalChip();
   }
 });
-function fractionForIndex(idx){ return [1, 0.75, 0.5, 0.25][idx] ?? 0; }
-
-function computeRawTotal(){
-  let total=0, detail={};
-  checksContainers().forEach(c=>{
-    const max = parseFloat(c.dataset.max||'0');
-    const key = c.dataset.key;
-    const idx = [...c.querySelectorAll('input')].findIndex(x=>x.checked);
-    detail[key]= idx;
-    if(idx>=0) total += max * fractionForIndex(idx);
-  });
-  return {raw: total, detail};
+function fractionForIndex(idx){ return [1,0.75,0.5,0.25][idx] ?? 0; }
+function computeRawTotal(){ let total=0, detail={};
+  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; if(idx>=0) total+=max*fractionForIndex(idx); });
+  return {raw:total, detail};
 }
 function adjustedScore(raw){ return gravite ? raw/5 : raw; }
-function updateTotalChip(){
-  const {raw}=computeRawTotal();
-  const adj = adjustedScore(raw);
-  chipEl.textContent = `Total : ${Math.round(adj)} / 100` + (gravite?' (gravité)':'');
-}
-
-$('#photoInput').addEventListener('change', (e)=>{
-  const file=e.target.files && e.target.files[0];
-  if(!file) { $('#photoPreview').style.display='none'; $('#photoPreview').src=''; return; }
-  const reader = new FileReader();
-  reader.onload = ()=>{ $('#photoPreview').src=reader.result; $('#photoPreview').style.display='block'; };
-  reader.readAsDataURL(file);
+function updateTotalChip(){ const {raw}=computeRawTotal(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
+$('#photoInput').addEventListener('change', e=>{
+  const file=e.target.files && e.target.files[0]; if(!file){ $('#photoPreview').style.display='none'; $('#photoPreview').src=''; return; }
+  const reader=new FileReader(); reader.onload=()=>{ $('#photoPreview').src=reader.result; $('#photoPreview').style.display='block'; }; reader.readAsDataURL(file);
 });
-
 $('#btnSaveZone').addEventListener('click', ()=>{
   if(!currentZone) return;
-  const {raw, detail}=computeRawTotal();
-  const photo = $('#photoPreview').src || null;
-  const comment = $('#photoComment').value.trim();
-  const totalAdj = Math.round(adjustedScore(raw));
-
-  reports[currentZone] = { scores: detail, photo, comment, total: totalAdj, savedAt: Date.now(), gravite: !!gravite };
+  const {raw,detail}=computeRawTotal(); const photo=$('#photoPreview').src||null; const comment=$('#photoComment').value.trim(); const totalAdj=Math.round(adjustedScore(raw));
+  reports[currentZone]={scores:detail, photo, comment, total:totalAdj, savedAt:Date.now(), gravite:!!gravite};
   localStorage.setItem(STORE_KEY, JSON.stringify(reports));
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
-  closeZoneForm();
-  drawAll();
+  closeZoneForm(); drawAll();
 });
+$('#btnClearZone').addEventListener('click', ()=>{ checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false)); $('#photoPreview').style.display='none'; $('#photoPreview').src=''; $('#photoInput').value=''; $('#photoComment').value=''; gravite=false; $('#btnGravite').classList.remove('on'); updateTotalChip(); });
 
-/* reset UI de la fiche (sans effacer l’enregistrement tant que pas sauvegardé) */
-$('#btnClearZone').addEventListener('click', ()=>{
-  checksContainers().forEach(c => [...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
-  $('#photoPreview').style.display='none'; $('#photoPreview').src=''; $('#photoInput').value=''; $('#photoComment').value='';
-  gravite=false; $('#btnGravite').classList.remove('on');
-  updateTotalChip();
-});
-
-/* ===== STATS / GRAPHIQUES ===== */
-const statsModal = $('#statsModal'), statsBackdrop=$('#statsBackdrop');
+/* ===== Stats/Graphiques ===== */
+const statsModal=$('#statsModal'), statsBackdrop=$('#statsBackdrop');
 $('#btnOpenStats').addEventListener('click', openStats);
 $('#btnCloseStats').addEventListener('click', closeStats);
 statsBackdrop.addEventListener('click', closeStats);
 
-function groupOf(zone){
-  for(const [g, arr] of Object.entries(GROUPS)){ if(arr.includes(zone)) return g; }
-  return '—';
-}
-function openStats(){
-  renderStats();
-  statsModal.classList.add('open'); statsModal.setAttribute('aria-hidden','false'); statsBackdrop.style.display='block';
-}
-function closeStats(){
-  statsModal.classList.remove('open'); statsModal.setAttribute('aria-hidden','true'); statsBackdrop.style.display='none';
-}
+function groupOf(zone){ for(const [g,arr] of Object.entries(GROUPS)){ if(arr.includes(zone)) return g; } return '—'; }
+function openStats(){ renderStats(); statsModal.classList.add('open'); statsModal.setAttribute('aria-hidden','false'); statsBackdrop.style.display='block'; }
+function closeStats(){ statsModal.classList.remove('open'); statsModal.setAttribute('aria-hidden','true'); statsBackdrop.style.display='none'; }
 function renderStats(){
-  const bars = $('#barsContainer'); bars.innerHTML='';
-  const rows = $('#zoneRows'); rows.innerHTML='';
-
-  const perGroup = {};
+  const bars=$('#barsContainer'); bars.innerHTML=''; const rows=$('#zoneRows'); rows.innerHTML='';
+  const perGroup={};
   Object.entries(GROUPS).forEach(([g,zs])=>{
-    const done = zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
-    const avg = done.length ? (done.reduce((a,b)=>a+b,0)/done.length) : 0;
-    perGroup[g] = {avg, count: done.length, totalZones: zs.length};
+    const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
+    const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0;
+    perGroup[g]={avg, count:done.length, totalZones:zs.length};
   });
-
-  // global
-  const allScores = Object.values(reports).map(r=>r.total);
-  const globalAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : 0;
-  $('#statsChip').textContent = `Global : ${Math.round(globalAvg)}% • ${allScores.length} zone(s) notée(s)`;
-
-  // barres groupes
+  const allScores=Object.values(reports).map(r=>r.total);
+  const globalAvg=allScores.length?(allScores.reduce((a,b)=>a+b,0)/allScores.length):0;
+  $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • ${allScores.length} zone(s) notée(s)`;
   Object.entries(perGroup).forEach(([g,info])=>{
-    const row = document.createElement('div'); row.className='barrow';
-    const label = document.createElement('div'); label.textContent=g;
-    const bar = document.createElement('div'); bar.className='bar';
-    const fill = document.createElement('span'); fill.style.width = Math.max(0, Math.min(100, info.avg)) + '%';
-    bar.appendChild(fill);
-    const pct = document.createElement('div'); pct.style.textAlign='right'; pct.textContent = (info.count?Math.round(info.avg):0) + '%';
+    const row=document.createElement('div'); row.className='barrow';
+    const label=document.createElement('div'); label.textContent=g;
+    const bar=document.createElement('div'); bar.className='bar';
+    const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill);
+    const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%';
     row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
-    const meta = document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1';
-    meta.textContent = `${info.count}/${info.totalZones} zone(s) notée(s)`;
+    const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`;
     bars.appendChild(row); bars.appendChild(meta);
   });
-
-  // lignes zones (tri par groupe puis zone)
-  const zonesAll = [].concat(...Object.values(GROUPS));
+  const zonesAll=[].concat(...Object.values(GROUPS));
   zonesAll.forEach(z=>{
-    const g = groupOf(z);
-    const r = reports[z];
-    const div = document.createElement('div'); div.className='row';
+    const g=groupOf(z); const r=reports[z];
+    const div=document.createElement('div'); div.className='row';
     const c1=document.createElement('div'); c1.textContent=z;
     const c2=document.createElement('div'); c2.textContent=g;
     const c3=document.createElement('div'); c3.textContent=r?.comment||'';
-    const c4=document.createElement('div'); c4.style.textAlign='right'; c4.textContent= (r? `${r.total} / 100${r.gravite?'*':''}` : '—');
+    const c4=document.createElement('div'); c4.style.textAlign='right'; c4.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—');
     div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4);
     rows.appendChild(div);
   });
 }
 
-/* ===== Init ===== */
-function init(){
-  initChoices();
-  fitAndCenter();
+/* ===== Réinitialiser toute la tournée ===== */
+document.getElementById('btnResetAll').addEventListener('click', ()=>{
+  const confirmMsg = 'Confirmer la réinitialisation ?\\nToutes les fiches enregistrées seront supprimées.';
+  if(!confirm(confirmMsg)) return;
+  localStorage.removeItem(STORE_KEY);
+  reports = {};
+  toast('Tournée réinitialisée.');
+  drawAll();
+  // mettre à jour les stats si la fenêtre est ouverte
+  if(!statsModal.hasAttribute('aria-hidden') || statsModal.classList.contains('open')) renderStats();
+});
+
+/* ===== Export XLS ===== */
+document.getElementById('btnExportXls').addEventListener('click', ()=>{
+  const rows = buildExportRows(); // {Zone,Groupe,Propreté,Affiches,Accessibilité,Tri,Bennes,Départ,Gravité,Total,Commentaire,Date}
+  if(rows.length===0){ toast('Aucune fiche à exporter.'); return; }
+  const html = makeExcelHtml(rows);
+  const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a');
+  const now = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const fileName = `tournee_dechets_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xls`;
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+  toast('Export XLS généré.');
+});
+
+function buildExportRows(){
+  const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
+  const idxToPct = idx => (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0);
+  const zonesAll=[].concat(...Object.values(GROUPS));
+  const rows=[];
+  zonesAll.forEach(z=>{
+    const r=reports[z]; if(!r) return; // uniquement la tournée en cours (zones notées)
+    const s=r.scores||{};
+    const scoreVal = k => Math.round((s[k]>=0?criteriaMax[k]*idxToPct(s[k]):0));
+    const row = {
+      Zone:z,
+      Groupe:groupOf(z),
+      Propreté:scoreVal('proprete'),
+      Affiches:scoreVal('affiches'),
+      Accessibilité:scoreVal('accessibilite'),
+      Tri:scoreVal('tri'),
+      Bennes:scoreVal('bennes'),
+      Départ:scoreVal('depart'),
+      Gravité:r.gravite?'Oui':'Non',
+      Total:r.total,
+      Commentaire:(r.comment||'').replace(/\s+/g,' ').trim(),
+      Date: new Date(r.savedAt||Date.now()).toLocaleString()
+    };
+    rows.push(row);
+  });
+  return rows;
 }
+
+/* Génère un fichier .xls (HTML compatible Excel) */
+function makeExcelHtml(rows){
+  const headers = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Commentaire','Date'];
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let table = '<table border="1"><thead><tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
+  table += rows.map(r=>'<tr>'+headers.map(h=>`<td>${esc(r[h]??'')}</td>`).join('')+'</tr>').join('');
+  table += '</tbody></table>';
+  // entête minimal pour Excel
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${table}</body></html>`;
+}
+
+/* ===== Init ===== */
+function init(){ initChoices(); fitAndCenter(); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
