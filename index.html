@@ -238,164 +238,115 @@
 
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script>
-"use strict";
+/***** SAFE MODE v1 – compat + debug *****/
+(function(){
+  var bootEl = document.createElement('div');
+  bootEl.id='debugBar';
+  bootEl.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9999;background:#111;color:#fff;padding:6px 10px;border-radius:8px;font:12px/1.2 monospace;opacity:.9';
+  bootEl.textContent='JS: booting…';
+  document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(bootEl); });
 
-/* ===== File-safe error toast ===== */
-window.addEventListener('error', (e)=>{ try{ console.error(e.error||e.message); toast('Erreur: '+(e.message||'voir console')); }catch{} });
-
-/* ===== Helpers ===== */
-const $ = (q)=>document.querySelector(q);
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
-
-/* ===== Panneau (desktop tiroir) ===== */
-const panel = $('#panel');
-$('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
-$('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
-
-/* ===== Données ===== */
-const coords = /* inchangé */ JSON.parse(decodeURIComponent('%7B%22MR5%20Atelier2%22%3A%7B%22x%22%3A243%2C%22y%22%3A684%7D%2C%22MR15%22%3A%7B%22x%22%3A301%2C%22y%22%3A606%7D%2C%22MR13%22%3A%7B%22x%22%3A312%2C%22y%22%3A577%7D%2C%22MR6%20Enduis%20et%20Peinture%22%3A%7B%22x%22%3A400%2C%22y%22%3A600%7D%2C%22MR13%20Atelier%204%22%3A%7B%22x%22%3A392%2C%22y%22%3A648%7D%2C%22MR1%22%3A%7B%22x%22%3A392%2C%22y%22%3A704%7D%2C%22MR13%20Atelier5%22%3A%7B%22x%22%3A461%2C%22y%22%3A728%7D%2C%22MR5%20Atelier23%22%3A%7B%22x%22%3A369%2C%22y%22%3A763%7D%2C%22MR3%20Voie%2035D%22%3A%7B%22x%22%3A552%2C%22y%22%3A554%7D%2C%22MR6%20KD%20Lavage%22%3A%7B%22x%22%3A536%2C%22y%22%3A505%7D%2C%22MR4%20Atelier6%22%3A%7B%22x%22%3A854%2C%22y%22%3A419%7D%2C%22BUMR%22%3A%7B%22x%22%3A790%2C%22y%22%3A460%7D%2C%22MR2%20-%20MR13%22%3A%7B%22x%22%3A680%2C%22y%22%3A665%7D%2C%22MR2%20Porte%22%3A%7B%22x%22%3A665%2C%22y%22%3A711%7D%2C%22MR2%20Fen%C3%AAtre%22%3A%7B%22x%22%3A670%2C%22y%22%3A747%7D%2C%22MR2%20Etabli%22%3A%7B%22x%22%3A738%2C%22y%22%3A747%7D%2C%22MR3%22%3A%7B%22x%22%3A774%2C%22y%22%3A659%7D%2C%22MR2%20HUB%22%3A%7B%22x%22%3A852%2C%22y%22%3A685%7D%2C%22MR7%20Peinture%20%2B%20pon%C3%A7age%22%3A%7B%22x%22%3A953%2C%22y%22%3A607%7D%2C%22MR7%20pr%C3%A9paration%22%3A%7B%22x%22%3A934%2C%22y%22%3A749%7D%2C%22CABOUT%22%3A%7B%22x%22%3A1034%2C%22y%22%3A688%7D%2C%22PRM11%22%3A%7B%22x%22%3A1028%2C%22y%22%3A745%7D%2C%22PRM4%22%3A%7B%22x%22%3A1189%2C%22y%22%3A747%7D%2C%22PRM5%20Compresseur%22%3A%7B%22x%22%3A1258%2C%22y%22%3A692%7D%2C%22PRM10%20Rechauffeur%22%3A%7B%22x%22%3A1325%2C%22y%22%3A678%7D%2C%22PRM1%20MVT%22%3A%7B%22x%22%3A1321%2C%22y%22%3A740%7D%2C%22PRM3%22%3A%7B%22x%22%3A1336%2C%22y%22%3A532%7D%2C%22PRM2%22%3A%7B%22x%22%3A1322%2C%22y%22%3A428%7D%2C%22PRM7%20Atelier12%22%3A%7B%22x%22%3A1280%2C%22y%22%3A345%7D%2C%22PRM6%20CAPA%22%3A%7B%22x%22%3A1203%2C%22y%22%3A331%7D%2C%22PRM6%20Blow%20WC%22%3A%7B%22x%22%3A1496%2C%22y%22%3A730%7D%2C%22PRM6%20Pi%C3%A8ces%20sanitaire%22%3A%7B%22x%22%3A1474%2C%22y%22%3A665%7D%2C%22PRM6%20Lavage%22%3A%7B%22x%22%3A1468%2C%22y%22%3A608%7D%2C%22SC2%20Amont%20CT10%22%3A%7B%22x%22%3A1452%2C%22y%22%3A490%7D%2C%22SC2%20Magasin%22%3A%7B%22x%22%3A1596%2C%22y%22%3A499%7D%2C%22SC2%20R%C3%A9ception%22%3A%7B%22x%22%3A1527%2C%22y%22%3A420%7D%2C%22SC%20Kitting%22%3A%7B%22x%22%3A1534%2C%22y%22%3A355%7D%2C%22MR8%20Grenailleuse%22%3A%7B%22x%22%3A1504%2C%22y%22%3A249%7D%2C%22Bogies%22%3A%7B%22x%22%3A1670%2C%22y%22%3A287%7D%2C%22MABOR%22%3A%7B%22x%22%3A1804%2C%22y%22%3A282%7D%2C%22PRM8%22%3A%7B%22x%22%3A1732%2C%22y%22%3A733%7D%2C%22Z1%22%3A%7B%22x%22%3A1875%2C%22y%22%3A584%7D%2C%22Z2%22%3A%7B%22x%22%3A1814%2C%22y%22%3A755%7D%2C%22Z3%22%3A%7B%22x%22%3A1768%2C%22y%22%3A366%7D%2C%22Z4%22%3A%7B%22x%22%3A1634%2C%22y%22%3A379%7D%2C%22Z5%22%3A%7B%22x%22%3A1602%2C%22y%22%3A182%7D%2C%22Z6%22%3A%7B%22x%22%3A1416%2C%22y%22%3A382%7D%2C%22Z7%22%3A%7B%22x%22%3A1529%2C%22y%22%3A492%7D%2C%22Z8%22%3A%7B%22x%22%3A1415%2C%22y%22%3A448%7D%2C%22Z9%22%3A%7B%22x%22%3A1419%2C%22y%22%3A617%7D%2C%22Z10%22%3A%7B%22x%22%3A1590%2C%22y%22%3A676%7D%2C%22Z11%22%3A%7B%22x%22%3A1415%2C%22y%22%3A734%7D%2C%22Z12%22%3A%7B%22x%22%3A1205%2C%22y%22%3A204%7D%2C%22Z13%22%3A%7B%22x%22%3A1285%2C%22y%22%3A412%7D%2C%22Z14%22%3A%7B%22x%22%3A1111%2C%22y%22%3A371%7D%2C%22Z15%22%3A%7B%22x%22%3A1200%2C%22y%22%3A603%7D%2C%22Z16%22%3A%7B%22x%22%3A1026%2C%22y%22%3A620%7D%2C%22Z17%22%3A%7B%22x%22%3A1122%2C%22y%22%3A644%7D%2C%22Z18%22%3A%7B%22x%22%3A1048%2C%22y%22%3A544%7D%2C%22Z19%22%3A%7B%22x%22%3A921%2C%22y%22%3A329%7D%2C%22Z20%22%3A%7B%22x%22%3A834%2C%22y%22%3A378%7D%2C%22Z21%22%3A%7B%22x%22%3A710%2C%22y%22%3A415%7D%2C%22Z22%22%3A%7B%22x%22%3A704%2C%22y%22%3A600%7D%2C%22Z23%22%3A%7B%22x%22%3A865%2C%22y%22%3A608%7D%2C%22Z24%22%3A%7B%22x%22%3A735%2C%22y%22%3A714%7D%2C%22Z25%22%3A%7B%22x%22%3A965%2C%22y%22%3A728%7D%2C%22Z26%22%3A%7B%22x%22%3A785%2C%22y%22%3A791%7D%2C%22Z27%22%3A%7B%22x%22%3A602%2C%22y%22%3A788%7D%2C%22Z28%22%3A%7B%22x%22%3A478%2C%22y%22%3A433%7D%2C%22Z29%22%3A%7B%22x%22%3A442%2C%22y%22%3A511%7D%2C%22Z30%22%3A%7B%22x%22%3A317%2C%22y%22%3A547%7D%2C%22Z31%22%3A%7B%22x%22%3A212%2C%22y%22%3A600%7D%2C%22Z32%22%3A%7B%22x%22%3A1156%2C%22y%22%3A738%7D%2C%22Z33%22%3A%7B%22x%22%3A292%2C%22y%22%3A689%7D%2C%22Z34%22%3A%7B%22x%22%3A511%2C%22y%22%3A685%7D%2C%22Z35%22%3A%7B%22x%22%3A1534%2C%22y%22%3A329%7D%2C%22Z36%22%3A%7B%22x%22%3A1119%2C%22y%22%3A598%7D%2C%22Bureau%20Administratif%22%3A%7B%22x%22%3A1524%2C%22y%22%3A152%7D%7D'));
-
-const dechetsParZone = /* inchangé */ JSON.parse(decodeURIComponent('%7B%22Z1%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z2%22%3A%5B%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22Caoutchouc%22%2C%22Bois%22%2C%22Carton%22%2C%22Condenseur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%5D%2C%22Z3%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z4%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Polystyr%C3%A8ne%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z5%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Cartouche%20d'encre%22%5D%2C%22Z6%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z7%22%3A%5B%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z8%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22Bac%20jaune%22%2C%22Bac%20noir%22%5D%2C%22Z9%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Bac%20noir%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z10%22%3A%5B%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Non%20ferreux%22%2C%22Carton%22%5D%2C%22Z11%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22R%C3%A9hausses%20KC%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z12%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z13%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22DEEE%22%2C%22Caoutchouc%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z14%22%3A%5B%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z15%22%3A%5B%22DEEE%22%2C%22Carton%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22Bac%20noir%22%5D%2C%22Z16%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Cartouche%20d'encre%22%2C%22V%C3%AAtements%20usag%C3%A9es%22%2C%22Bac%20noir%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%2C%22Carton%22%2C%22Bac%20jaune%22%5D%2C%22Z17%22%3A%5B%22DEEE%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z18%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Verre%22%2C%22D%C3%A9chets%20non%20dangereux%22%5D%2C%22Z19%22%3A%5B%22Bac%20noir%22%5D%2C%22Z20%22%3A%5B%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bois%22%2C%22Carton%22%2C%22Plastique%22%2C%22Bac%20plomb%22%5D%2C%22Z21%22%3A%5B%22Verre%22%2C%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22DEEE%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22GRV%20Huiles%22%2C%22GRV%20Cool%20Elf%22%5D%2C%22Z22%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22F%C3%BBt%20peinture%22%5D%2C%22Z23%22%3A%5B%22Ampoules%22%2C%22N%C3%A9ons%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z24%22%3A%5B%22Caoutchouc%22%2C%22P%C3%A9lican%22%2C%22Verre%22%5D%2C%22Z25%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z26%22%3A%5B%22Carton%22%2C%22Bois%22%5D%2C%22Z27%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22A%C3%A9rosols%22%5D%2C%22Z28%22%3A%5B%22Ferreux%22%2C%22Bac%20noir%22%2C%22F%C3%BBt%20filtres%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z29%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z30%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Bois%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22A%C3%A9rosols%22%2C%22Amiante%22%5D%2C%22Z31%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Amiante%22%5D%2C%22Z32%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%5D%2C%22Z33%22%3A%5B%22Amiante%22%5D%2C%22Z34%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z35%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Plastique%22%2C%22Carton%22%5D%7D'));
-
-/* ===== Barres et sélecteurs (Choices) ===== */
-let choicesZone, choicesDechet;
-function initChoices(){
-  const hasChoices = typeof Choices === 'function';
-  const zoneSel = $('#zoneSelect');
-  const dechSel = $('#dechetSelect');
-  // Toujours inclure "Ma localisation" d'emblée pour éviter de manipuler le <select> natif pendant Choices
-  const zoneOpts = ['Ma localisation', ...Object.keys(coords).filter(k=>!k.startsWith('Z'))];
-  zoneSel.innerHTML = zoneOpts.map(v=>`<option value="${v}">${v}</option>`).join('');
-
-  const allTypes=[...new Set(Object.values(dechetsParZone).flat())].sort();
-  dechSel.innerHTML = allTypes.map(v=>`<option value="${v}">${v}</option>`).join('');
-
-  if(hasChoices){
-    choicesZone   = new Choices(zoneSel,   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
-    choicesDechet = new Choices(dechSel, {searchEnabled:true,shouldSort:true, itemSelectText:'',placeholderValue:'Rechercher un déchet…'});
+  function setDebug(msg){ try{ bootEl.textContent = 'JS: '+msg; }catch(e){}
+    try{ console.log('[DEBUG]', msg); }catch(e){}
   }
 
-  zoneSel.addEventListener('change', e=>{
-    updateInfoPanel(e.target.value);
-    const types=dechetsParZone[e.target.value]||allTypes;
-    if(hasChoices){ choicesDechet.clearChoices(); types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false)); }
-    else { dechSel.innerHTML = types.map(v=>`<option value="${v}">${v}</option>`).join(''); }
+  window.addEventListener('error', function(e){
+    setDebug('ERROR → '+(e.message||'see console'));
   });
-}
-function updateInfoPanel(zone){
-  const ul=$('#dechetList'); ul.innerHTML='';
-  (dechetsParZone[zone]||[]).sort().forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
-  if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
-  $('#kpiZone').textContent = zone || '—';
-}
 
-/* ===== Carte : fit contain + zoom/pan ===== */
-const mapContainer=$('#mapContainer');
-const mapImg=$('#mapImage');
-const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
-
-let base={s:1,ox:0,oy:0,iw:1,ih:1}; let view={z:1, panX:0, panY:0}; let dragging=false, lx=0, ly=0;
-
-function computeFit(){ const r=mapContainer.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1; const s=Math.min(r.width/base.iw, r.height/base.ih); base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2; }
-function applyLayout(){ const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z; mapImg.style.width=w+'px'; mapImg.style.height=h+'px'; mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px'; $('#kpiZoom').textContent=Math.round(view.z*100)+'%'; }
-function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
-new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
-mapImg.addEventListener('load', ()=>{ fitAndCenter(); }); if (mapImg.complete) setTimeout(fitAndCenter,0);
-
-function imgToScreen(pt){ return { x: (base.ox+view.panX) + pt.x*(base.s*view.z), y: (base.oy+view.panY) + pt.y*(base.s*view.z) }; }
-function screenToImg(x,y){ return { x: (x - base.ox - view.panX) / (base.s*view.z), y: (y - base.oy - view.panY) / (base.s*view.z) }; }
-function setZoom(z,cx,cy){ const MIN=0.1, MAX=4; z=Math.max(MIN,Math.min(MAX,z)); if(typeof cx==='number' && typeof cy==='number'){ const before=screenToImg(cx,cy); view.z=z; applyLayout(); const after=imgToScreen(before); view.panX += (cx - after.x); view.panY += (cy - after.y); } else { view.z=z; } applyLayout(); drawAll(); }
-$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
-$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
-$('#btnFit').onclick = ()=> fitAndCenter();
-mapContainer.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId); });
-mapContainer.addEventListener('pointermove', e=>{ if(!dragging) return; view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
-mapContainer.addEventListener('pointerup', ()=> dragging=false);
-mapContainer.addEventListener('pointercancel', ()=> dragging=false);
-mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const rect=mapContainer.getBoundingClientRect(); setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top); },{passive:false});
-
-/* ===== Notation Zones ===== */
-const WEIGHTS = { proprete:10, affiches:10, accessibilite:10, tri:25, bennes:20, depart:10 };
-const KEYS = Object.keys(WEIGHTS);
-const MAX_TOTAL = Object.values(WEIGHTS).reduce((a,b)=>a+b,0);
-const zoneMaxEl = document.getElementById('zoneMax'); if(zoneMaxEl) zoneMaxEl.textContent = MAX_TOTAL;
-const rateModal = document.getElementById('rateModal'); const rateForm = document.getElementById('rateForm');
-const rateTitle = document.getElementById('rateTitle'); const zoneScoreEl = document.getElementById('zoneScore'); const statusPill = document.getElementById('statusPill');
-const photoInput = document.getElementById('photoInput'); const photoPreview = document.getElementById('photoPreview'); const photoComment = document.getElementById('photoComment');
-let currentZone = null;
-function zoneStoreKey(z){ return `audit_zone_${z}`; }
-function loadZone(z){ const raw=localStorage.getItem(zoneStoreKey(z)); return raw?JSON.parse(raw):null; }
-function saveZone(z,data){ localStorage.setItem(zoneStoreKey(z), JSON.stringify(data)); }
-function deleteZone(z){ localStorage.removeItem(zoneStoreKey(z)); }
-function quartToScore(weight,n){ return (weight/4)*n; }
-function computeScore(payload){ return KEYS.reduce((s,k)=> s + quartToScore(WEIGHTS[k], (payload[k]||[]).filter(Boolean).length), 0); }
-function isComplete(payload){ return KEYS.every(k=> (payload[k]||[]).some(v=>v)); }
-Array.from(document.querySelectorAll('.checks')).forEach(div=>{ const key=div.dataset.key; for(let i=1;i<=4;i++){ const id=`${key}_${i}`; const lab=document.createElement('label'); lab.innerHTML=`<input type="checkbox" id="${id}" data-key="${key}" data-idx="${i}"><span>${i}</span>`; div.appendChild(lab);} });
-function openRate(z){ currentZone=z; rateTitle.textContent = z; statusPill.style.display='none'; rateForm.reset(); document.querySelectorAll('.checks input').forEach(cb=> cb.checked=false); photoPreview.innerHTML='<span class="muted">Aucune image</span>'; const data=loadZone(z); if(data){ KEYS.forEach(k=>{ (data[k]||[false,false,false,false]).forEach((v,idx)=>{ const cb=document.querySelector(`input[data-key="${k}"][data-idx="${idx+1}"]`); if(cb) cb.checked=!!v; }); }); if(data.photo){ const img=document.createElement('img'); img.src=data.photo; photoPreview.innerHTML=''; photoPreview.appendChild(img);} photoComment.value=data.photoComment||''; } updateScoreLive(); rateModal.showModal(); }
-$('#btnCloseRate').addEventListener('click', (e)=>{ e.preventDefault(); rateModal.close(); });
-function updateScoreLive(){ const tmp={}; KEYS.forEach(k=> tmp[k]=Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked)); const score=computeScore(tmp); zoneScoreEl.textContent = Math.round(score*100)/100; statusPill.style.display = isComplete(tmp)?'inline-flex':'none'; }
-// Délégation d'événements (plus robuste)
-document.addEventListener('change', (e)=>{ if(e.target && e.target.matches('.checks input[type="checkbox"]')) updateScoreLive(); });
-photoInput.addEventListener('change', ()=>{ const f=photoInput.files?.[0]; if(!f){ photoPreview.innerHTML='<span class="muted">Aucune image</span>'; return; } const r=new FileReader(); r.onload=()=>{ const img=document.createElement('img'); img.src=r.result; photoPreview.innerHTML=''; photoPreview.appendChild(img); }; r.readAsDataURL(f); });
-$('#btnSaveRate').addEventListener('click', (e)=>{ e.preventDefault(); if(!currentZone) return; const payload={ _zone:currentZone }; KEYS.forEach(k=> payload[k]=Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked)); const img=photoPreview.querySelector('img'); payload.photo = img?img.src:null; payload.photoComment = photoComment.value||''; payload._score = computeScore(payload); payload._complete = isComplete(payload); saveZone(currentZone,payload); rateModal.close(); drawAll(); });
-$('#btnDeleteZone').addEventListener('click', (e)=>{ e.preventDefault(); if(!currentZone) return; if(confirm(`Supprimer les données pour ${currentZone} ?`)){ deleteZone(currentZone); rateModal.close(); drawAll(); }});
-
-/* ===== Dessin ===== */
-let route=null; let userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
-function drawAll(){ const r = mapContainer.getBoundingClientRect(); ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(route){ const p0=imgToScreen(route.from), p1=imgToScreen(route.to); ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)'; ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore(); const rad=8+4*Math.abs(Math.sin(performance.now()/350)); ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke(); ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke(); }
-  const ZONES = Object.keys(coords).filter(k=>k.startsWith('Z'));
-  for(const z of ZONES){ const scr=imgToScreen(coords[z]); const data=loadZone(z); const filled = data && data._complete; ctx.beginPath(); ctx.arc(scr.x,scr.y,14,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle = filled ? '#16a34a' : '#ef4444'; ctx.fillStyle = filled ? 'rgba(22,163,74,.18)' : 'rgba(239,68,68,.12)'; ctx.fill(); ctx.stroke(); }
-  if(userPos){ const p=imgToScreen(userPos); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill(); ctx.strokeStyle='#065f46'; ctx.stroke(); const angRad = normalizedHeadingRad(); if(angRad!=null){ const ang=angRad - Math.PI/2; const len=80; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath(); ctx.fillStyle='#2563eb'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath(); ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill(); ctx.restore(); } }
-}
-(function loop(){ requestAnimationFrame(loop); drawAll(); })();
-
-/* ===== Interaction carte : ouverture fiche si clic proche d'une Z* ===== */
-let pick=false;
-$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’EMPLACEMENT d’origine':'Sélection par clic désactivée'); });
-mapContainer.addEventListener('click', e=>{ const rect=mapContainer.getBoundingClientRect(); const imgPt=screenToImg(e.clientX-rect.left, e.clientY-rect.top); if(pick){ let best=null,dmin=Infinity; Object.keys(coords).forEach(name=>{ if(!name.startsWith('Z')){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; best=name; } } }); if(best){ const sel=$('#zoneSelect'); sel.value=best; sel.dispatchEvent(new Event('change', {bubbles:true})); pick=false; } return; } let nearest=null, dmin=Infinity; Object.keys(coords).forEach(name=>{ if(name.startsWith('Z')){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; nearest=name; } } }); const threshold=28/(base.s*view.z); if(nearest && dmin<=threshold){ updateInfoPanel(nearest); openRate(nearest); }});
-
-/* ===== Tracer / Effacer ===== */
-$('#btnOK').addEventListener('click', ()=>{ const dep=$('#zoneSelect').value; const waste=($('#dechetSelect').value||'').toLowerCase().trim(); let origin=null; if(dep && coords[dep]) origin=coords[dep]; if(dep==='Ma localisation' && userPos) origin=userPos; if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; } let best=null,dmin=Infinity; for(const z in dechetsParZone){ if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){ const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y); if(d<dmin){ dmin=d; best=z; } } } if(!best){ toast('Aucune zone pour ce déchet.'); return; } updateInfoPanel(best); route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} }; });
-$('#btnClear').addEventListener('click', ()=>{ route=null; drawAll(); });
-
-/* ===== GPS + Boussole (HTTPS requis) ===== */
-const calibration = [ {lat:45.193611, lon:0.705167, x:coords['Z12'].x, y:coords['Z12'].y}, {lat:45.192694, lon:0.706000, x:coords['Z5'].x, y:coords['Z5'].y}, {lat:45.192194, lon:0.706083, x:coords['MABOR'].x, y:coords['MABOR'].y} ];
-function gpsToPixel(lat, lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3 * Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320; function bary(px,py,x0,y0,x1,y1,x2,y2){ const det=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/det; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/det; const w=1-u-v; return [u,v,w]; } const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky, x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return { x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y }; }
-function screenOrientationAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
-function normalizedHeadingDeg(){ if (headingDegRaw==null) return null; let h; if (headingSource==='ios'){ h=headingDegRaw; } else { h=360-headingDegRaw; h+=screenOrientationAngle(); } h+=compassOffsetDeg; return ((h%360)+360)%360; }
-function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
-function handleOrient(e){ if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; } else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; } const h=normalizedHeadingDeg(); $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`; $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°'); }
-function calibrateCompassToZero(){ const h=normalizedHeadingDeg() ?? headingDegRaw; if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; } compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`); }
-function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
-$('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
-$('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
-$('#btnNudgePlus').addEventListener('click', ()=>{ nudgeOffset(+5); toast('Offset +5°'); });
-let watchId=null, compassEnabled=false;
-$('#btnGPS').addEventListener('click', ()=>{
-  if(!navigator.geolocation){ toast('GPS non disponible'); return; }
-  if(watchId==null){ watchId = navigator.geolocation.watchPosition(pos=>{ const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude); userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`; $('#chipGps').textContent='GPS: on'; }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true}); }
-  if(!compassEnabled){ if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){ DeviceOrientationEvent.requestPermission().then(res=>{ if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; } else { $('#chipCompass').textContent='Boussole: refusée'; } }).catch(()=> toast('Boussole indisponible')); }else{ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
-    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); } else { window.addEventListener('orientationchange', handleOrient); }
+  /* ---- Polyfill <dialog> minimal ---- */
+  function ensureDialogPolyfill(){
+    var dlg = document.getElementById('rateModal');
+    if(!dlg) return;
+    if (typeof window.HTMLDialogElement === 'undefined' || !('showModal' in HTMLDialogElement.prototype)){
+      setDebug('dialog polyfill active');
+      var backdrop = document.createElement('div');
+      backdrop.id='dlgBackdrop';
+      backdrop.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:60';
+      document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(backdrop); });
+      dlg.style.position='fixed'; dlg.style.zIndex='61'; dlg.style.left='50%'; dlg.style.top='50%'; dlg.style.transform='translate(-50%,-50%)'; dlg.style.display='none';
+      dlg.showModal = function(){ dlg.style.display='block'; backdrop.style.display='block'; };
+      dlg.close = function(){ dlg.style.display='none'; backdrop.style.display='none'; };
+    } else {
+      setDebug('dialog native');
+    }
   }
-  if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
-});
 
-/* ===== Export / Reset ===== */
-function allZones(){ return Object.keys(coords).filter(k=>k.startsWith('Z')); }
-function exportJson(){ const out=allZones().map(z=>({zone:z,data:loadZone(z)})); download(`tournee_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(out,null,2), 'application/json'); }
-function exportCsv(){ const rows=[["zone","proprete(0-4)","affiches(0-4)","accessibilite(0-4)","tri(0-4)","bennes(0-4)","depart(0-4)","score","complete","photoComment"]]; allZones().forEach(z=>{ const d=loadZone(z)||{}; const toN=k=> (d[k]||[]).filter(Boolean).length; rows.push([z,toN('proprete'),toN('affiches'),toN('accessibilite'),toN('tri'),toN('bennes'),toN('depart'), d._score||0, d._complete?1:0, (d.photoComment||'').replace(/
-/g,' ') ]); }); const csv=rows.map(r=> r.map(v=> String(v).includes(',')?`"${String(v).replaceAll('"','""')}"`:v).join(',')).join('
-'); download(`tournee_${new Date().toISOString().slice(0,10)}.csv`, csv, 'text/csv'); }
-function download(name, data, type='application/octet-stream'){ const blob=new Blob([data],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }
-$('#btnExportJson').addEventListener('click', exportJson);
-$('#btnExportCsv').addEventListener('click', exportCsv);
-$('#btnResetAll').addEventListener('click', ()=>{ if(!confirm('Tout effacer ?')) return; allZones().forEach(deleteZone); drawAll(); toast('Réinitialisé'); });
+  document.addEventListener('DOMContentLoaded', function(){
+    setDebug('DOMContentLoaded');
 
-/* ===== Init ===== */
-function init(){ initChoices(); fitAndCenter(); }
-document.addEventListener('DOMContentLoaded', init);
+    /* ===== Helpers ===== */
+    function $(q){ return document.querySelector(q); }
+    function toast(msg){ var t=$('#toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},1800); }
+
+    ensureDialogPolyfill();
+
+    /* ===== Panneau ===== */
+    var panel = $('#panel');
+    $('#btnTogglePanel').addEventListener('click', function(){ panel.classList.toggle('open'); });
+    $('#btnClosePanel').addEventListener('click', function(){ panel.classList.remove('open'); });
+
+    /* ===== Données (version sans optional chaining) ===== */
+    var coords = JSON.parse(decodeURIComponent('%7B%22MR5%20Atelier2%22%3A%7B%22x%22%3A243%2C%22y%22%3A684%7D%2C%22MR15%22%3A%7B%22x%22%3A301%2C%22y%22%3A606%7D%2C%22MR13%22%3A%7B%22x%22%3A312%2C%22y%22%3A577%7D%2C%22MR6%20Enduis%20et%20Peinture%22%3A%7B%22x%22%3A400%2C%22y%22%3A600%7D%2C%22MR13%20Atelier%204%22%3A%7B%22x%22%3A392%2C%22y%22%3A648%7D%2C%22MR1%22%3A%7B%22x%22%3A392%2C%22y%22%3A704%7D%2C%22MR13%20Atelier5%22%3A%7B%22x%22%3A461%2C%22y%22%3A728%7D%2C%22MR5%20Atelier23%22%3A%7B%22x%22%3A369%2C%22y%22%3A763%7D%2C%22MR3%20Voie%2035D%22%3A%7B%22x%22%3A552%2C%22y%22%3A554%7D%2C%22MR6%20KD%20Lavage%22%3A%7B%22x%22%3A536%2C%22y%22%3A505%7D%2C%22MR4%20Atelier6%22%3A%7B%22x%22%3A854%2C%22y%22%3A419%7D%2C%22BUMR%22%3A%7B%22x%22%3A790%2C%22y%22%3A460%7D%2C%22MR2%20-%20MR13%22%3A%7B%22x%22%3A680%2C%22y%22%3A665%7D%2C%22MR2%20Porte%22%3A%7B%22x%22%3A665%2C%22y%22%3A711%7D%2C%22MR2%20Fen%C3%AAtre%22%3A%7B%22x%22%3A670%2C%22y%22%3A747%7D%2C%22MR2%20Etabli%22%3A%7B%22x%22%3A738%2C%22y%22%3A747%7D%2C%22MR3%22%3A%7B%22x%22%3A774%2C%22y%22%3A659%7D%2C%22MR2%20HUB%22%3A%7B%22x%22%3A852%2C%22y%22%3A685%7D%2C%22MR7%20Peinture%20%2B%20pon%C3%A7age%22%3A%7B%22x%22%3A953%2C%22y%22%3A607%7D%2C%22MR7%20pr%C3%A9paration%22%3A%7B%22x%22%3A934%2C%22y%22%3A749%7D%2C%22CABOUT%22%3A%7B%22x%22%3A1034%2C%22y%22%3A688%7D%2C%22PRM11%22%3A%7B%22x%22%3A1028%2C%22y%22%3A745%7D%2C%22PRM4%22%3A%7B%22x%22%3A1189%2C%22y%22%3A747%7D%2C%22PRM5%20Compresseur%22%3A%7B%22x%22%3A1258%2C%22y%22%3A692%7D%2C%22PRM10%20Rechauffeur%22%3A%7B%22x%22%3A1325%2C%22y%22%3A678%7D%2C%22PRM1%20MVT%22%3A%7B%22x%22%3A1321%2C%22y%22%3A740%7D%2C%22PRM3%22%3A%7B%22x%22%3A1336%2C%22y%22%3A532%7D%2C%22PRM2%22%3A%7B%22x%22%3A1322%2C%22y%22%3A428%7D%2C%22PRM7%20Atelier12%22%3A%7B%22x%22%3A1280%2C%22y%22%3A345%7D%2C%22PRM6%20CAPA%22%3A%7B%22x%22%3A1203%2C%22y%22%3A331%7D%2C%22PRM6%20Blow%20WC%22%3A%7B%22x%22%3A1496%2C%22y%22%3A730%7D%2C%22PRM6%20Pi%C3%A8ces%20sanitaire%22%3A%7B%22x%22%3A1474%2C%22y%22%3A665%7D%2C%22PRM6%20Lavage%22%3A%7B%22x%22%3A1468%2C%22y%22%3A608%7D%2C%22SC2%20Amont%20CT10%22%3A%7B%22x%22%3A1452%2C%22y%22%3A490%7D%2C%22SC2%20Magasin%22%3A%7B%22x%22%3A1596%2C%22y%22%3A499%7D%2C%22SC2%20R%C3%A9ception%22%3A%7B%22x%22%3A1527%2C%22y%22%3A420%7D%2C%22SC%20Kitting%22%3A%7B%22x%22%3A1534%2C%22y%22%3A355%7D%2C%22MR8%20Grenailleuse%22%3A%7B%22x%22%3A1504%2C%22y%22%3A249%7D%2C%22Bogies%22%3A%7B%22x%22%3A1670%2C%22y%22%3A287%7D%2C%22MABOR%22%3A%7B%22x%22%3A1804%2C%22y%22%3A282%7D%2C%22PRM8%22%3A%7B%22x%22%3A1732%2C%22y%22%3A733%7D%2C%22Z1%22%3A%7B%22x%22%3A1875%2C%22y%22%3A584%7D%2C%22Z2%22%3A%7B%22x%22%3A1814%2C%22y%22%3A755%7D%2C%22Z3%22%3A%7B%22x%22%3A1768%2C%22y%22%3A366%7D%2C%22Z4%22%3A%7B%22x%22%3A1634%2C%22y%22%3A379%7D%2C%22Z5%22%3A%7B%22x%22%3A1602%2C%22y%22%3A182%7D%2C%22Z6%22%3A%7B%22x%22%3A1416%2C%22y%22%3A382%7D%2C%22Z7%22%3A%7B%22x%22%3A1529%2C%22y%22%3A492%7D%2C%22Z8%22%3A%7B%22x%22%3A1415%2C%22y%22%3A448%7D%2C%22Z9%22%3A%7B%22x%22%3A1419%2C%22y%22%3A617%7D%2C%22Z10%22%3A%7B%22x%22%3A1590%2C%22y%22%3A676%7D%2C%22Z11%22%3A%7B%22x%22%3A1415%2C%22y%22%3A734%7D%2C%22Z12%22%3A%7B%22x%22%3A1205%2C%22y%22%3A204%7D%2C%22Z13%22%3A%7B%22x%22%3A1285%2C%22y%22%3A412%7D%2C%22Z14%22%3A%7B%22x%22%3A1111%2C%22y%22%3A371%7D%2C%22Z15%22%3A%7B%22x%22%3A1200%2C%22y%22%3A603%7D%2C%22Z16%22%3A%7B%22x%22%3A1026%2C%22y%22%3A620%7D%2C%22Z17%22%3A%7B%22x%22%3A1122%2C%22y%22%3A644%7D%2C%22Z18%22%3A%7B%22x%22%3A1048%2C%22y%22%3A544%7D%2C%22Z19%22%3A%7B%22x%22%3A921%2C%22y%22%3A329%7D%2C%22Z20%22%3A%7B%22x%22%3A834%2C%22y%22%3A378%7D%2C%22Z21%22%3A%7B%22x%22%3A710%2C%22y%22%3A415%7D%2C%22Z22%22%3A%7B%22x%22%3A704%2C%22y%22%3A600%7D%2C%22Z23%22%3A%7B%22x%22%3A865%2C%22y%22%3A608%7D%2C%22Z24%22%3A%7B%22x%22%3A735%2C%22y%22%3A714%7D%2C%22Z25%22%3A%7B%22x%22%3A965%2C%22y%22%3A728%7D%2C%22Z26%22%3A%7B%22x%22%3A785%2C%22y%22%3A791%7D%2C%22Z27%22%3A%7B%22x%22%3A602%2C%22y%22%3A788%7D%2C%22Z28%22%3A%7B%22x%22%3A478%2C%22y%22%3A433%7D%2C%22Z29%22%3A%7B%22x%22%3A442%2C%22y%22%3A511%7D%2C%22Z30%22%3A%7B%22x%22%3A317%2C%22y%22%3A547%7D%2C%22Z31%22%3A%7B%22x%22%3A212%2C%22y%22%3A600%7D%2C%22Z32%22%3A%7B%22x%22%3A1156%2C%22y%22%3A738%7D%2C%22Z33%22%3A%7B%22x%22%3A292%2C%22y%22%3A689%7D%2C%22Z34%22%3A%7B%22x%22%3A511%2C%22y%22%3A685%7D%2C%22Z35%22%3A%7B%22x%22%3A1534%2C%22y%22%3A329%7D%2C%22Z36%22%3A%7B%22x%22%3A1119%2C%22y%22%3A598%7D%2C%22Bureau%20Administratif%22%3A%7B%22x%22%3A1524%2C%22y%22%3A152%7D%7D'));
+    var dechetsParZone = JSON.parse(decodeURIComponent('%7B%22Z1%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z2%22%3A%5B%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22Caoutchouc%22%2C%22Bois%22%2C%22Carton%22%2C%22Condenseur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%5D%2C%22Z3%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z4%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Polystyr%C3%A8ne%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z5%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Cartouche%20d'encre%22%5D%2C%22Z6%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z7%22%3A%5B%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z8%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22Bac%20jaune%22%2C%22Bac%20noir%22%5D%2C%22Z9%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Bac%20noir%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z10%22%3A%5B%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Non%20ferreux%22%2C%22Carton%22%5D%2C%22Z11%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22R%C3%A9hausses%20KC%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z12%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z13%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22DEEE%22%2C%22Caoutchouc%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z14%22%3A%5B%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z15%22%3A%5B%22DEEE%22%2C%22Carton%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22Bac%20noir%22%5D%2C%22Z16%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Cartouche%20d'encre%22%2C%22V%C3%AAtements%20usag%C3%A9es%22%2C%22Bac%20noir%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%2C%22Carton%22%2C%22Bac%20jaune%22%5D%2C%22Z17%22%3A%5B%22DEEE%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z18%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Verre%22%2C%22D%C3%A9chets%20non%20dangereux%22%5D%2C%22Z19%22%3A%5B%22Bac%20noir%22%5D%2C%22Z20%22%3A%5B%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bois%22%2C%22Carton%22%2C%22Plastique%22%2C%22Bac%20plomb%22%5D%2C%22Z21%22%3A%5B%22Verre%22%2C%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22DEEE%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22GRV%20Huiles%22%2C%22GRV%20Cool%20Elf%22%5D%2C%22Z22%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22F%C3%BBt%20peinture%22%5D%2C%22Z23%22%3A%5B%22Ampoules%22%2C%22N%C3%A9ons%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z24%22%3A%5B%22Caoutchouc%22%2C%22P%C3%A9lican%22%2C%22Verre%22%5D%2C%22Z25%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z26%22%3A%5B%22Carton%22%2C%22Bois%22%5D%2C%22Z27%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22A%C3%A9rosols%22%5D%2C%22Z28%22%3A%5B%22Ferreux%22%2C%22Bac%20noir%22%2C%22F%C3%BBt%20filtres%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z29%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z30%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Bois%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22A%C3%A9rosols%22%2C%22Amiante%22%5D%2C%22Z31%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Amiante%22%5D%2C%22Z32%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%5D%2C%22Z33%22%3A%5B%22Amiante%22%5D%2C%22Z34%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z35%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Plastique%22%2C%22Carton%22%5D%7D'));
+
+    /* ===== UI selects (fallback sans Choices si CDN bloqué) ===== */
+    var zoneSel = $('#zoneSelect'), dechSel=$('#dechetSelect');
+    var zoneOpts = ['Ma localisation'];
+    Object.keys(coords).forEach(function(k){ if(k.indexOf('Z')!==0) zoneOpts.push(k); });
+    zoneSel.innerHTML = zoneOpts.map(function(v){return '<option value="'+v+'">'+v+'</option>';}).join('');
+    var allTypes = []; Object.keys(dechetsParZone).forEach(function(z){ dechetsParZone[z].forEach(function(t){ if(allTypes.indexOf(t)===-1) allTypes.push(t); }); }); allTypes.sort();
+    dechSel.innerHTML = allTypes.map(function(v){return '<option value="'+v+'">'+v+'</option>';}).join('');
+
+    if (typeof Choices==='function'){
+      try{ new Choices(zoneSel,{searchEnabled:true,shouldSort:false,itemSelectText:''}); new Choices(dechSel,{searchEnabled:true,shouldSort:true,itemSelectText:''}); }catch(err){ setDebug('Choices err: '+err.message); }
+    }
+
+    zoneSel.addEventListener('change', function(e){
+      var z=e.target.value; var ul=$('#dechetList'); ul.innerHTML=''; var arr=(dechetsParZone[z]||[]).slice().sort();
+      if(!arr.length) ul.innerHTML='<li>Aucun déchet</li>'; else arr.forEach(function(t){ var li=document.createElement('li'); li.textContent=t; ul.appendChild(li); });
+      $('#kpiZone').textContent = z || '—';
+    });
+
+    /* ===== Carte & dessin minimal pour valider les boutons ===== */
+    var mapContainer=$('#mapContainer'); var mapImg=$('#mapImage'); var canvas=$('#overlay'); var ctx=canvas.getContext('2d');
+    var base={s:1,ox:0,oy:0,iw:1,ih:1}; var view={z:1,panX:0,panY:0}; var dragging=false,lx=0,ly=0;
+    function computeFit(){ var r=mapContainer.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1; var s=Math.min(r.width/base.iw, r.height/base.ih); base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2; }
+    function applyLayout(){ var w=base.iw*base.s*view.z, h=base.ih*base.s*view.z; mapImg.style.width=w+'px'; mapImg.style.height=h+'px'; mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px'; $('#kpiZoom').textContent=Math.round(view.z*100)+'%'; }
+    function imgToScreen(pt){ return {x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z)}; }
+    function drawAll(){ ctx.clearRect(0,0,canvas.width,canvas.height); /* markers Z */ Object.keys(coords).forEach(function(k){ if(k.indexOf('Z')===0){ var p=imgToScreen(coords[k]); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(239,68,68,.15)'; ctx.fill(); ctx.strokeStyle='#ef4444'; ctx.stroke(); } }); }
+    function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
+    new ResizeObserver(function(){ fitAndCenter(); }).observe(mapContainer);
+    mapImg.addEventListener('load', fitAndCenter); if(mapImg.complete) setTimeout(fitAndCenter,0);
+
+    document.getElementById('zPlus').onclick  = function(){ view.z+=0.12; applyLayout(); drawAll(); setDebug('zPlus ok'); };
+    document.getElementById('zMinus').onclick = function(){ view.z-=0.12; applyLayout(); drawAll(); setDebug('zMinus ok'); };
+    document.getElementById('zReset').onclick = function(){ view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); setDebug('zReset ok'); };
+    document.getElementById('btnFit').onclick = function(){ fitAndCenter(); setDebug('fit ok'); };
+
+    /* ===== Notation : ouvrir modal au clic sur une Z* ===== */
+    var rateModal = document.getElementById('rateModal'); var rateTitle=document.getElementById('rateTitle'); var zoneScoreEl=document.getElementById('zoneScore'); var statusPill=document.getElementById('statusPill');
+    var KEYS=['proprete','affiches','accessibilite','tri','bennes','depart']; var WEIGHTS={proprete:10,affiches:10,accessibilite:10,tri:25,bennes:20,depart:10};
+    Array.prototype.forEach.call(document.querySelectorAll('.checks'), function(div){ var key=div.getAttribute('data-key'); for(var i=1;i<=4;i++){ var lab=document.createElement('label'); lab.innerHTML='<input type="checkbox" data-key="'+key+'" data-idx="'+i+'"><span>'+i+'</span>'; div.appendChild(lab); } });
+    function computeScore(){ var s=0; for(var k=0;k<KEYS.length;k++){ var key=KEYS[k]; var cbs=document.querySelectorAll('input[data-key="'+key+'"]'); var n=0; for(var i=0;i<cbs.length;i++){ if(cbs[i].checked) n++; } s += (WEIGHTS[key]/4)*n; } return s; }
+    document.addEventListener('change', function(e){ if(e.target && e.target.matches('input[type="checkbox"][data-key]')){ var sc=computeScore(); zoneScoreEl.textContent = Math.round(sc*100)/100; var complete=true; for(var k=0;k<KEYS.length;k++){ var cbs=document.querySelectorAll('input[data-key="'+KEYS[k]+'"]'); var any=false; for(var i=0;i<cbs.length;i++){ if(cbs[i].checked){ any=true; break; } } if(!any) complete=false; } statusPill.style.display = complete?'inline-flex':'none'; }});
+
+    mapContainer.addEventListener('click', function(e){ var rect=mapContainer.getBoundingClientRect(); var x=(e.clientX-rect.left - (base.ox+view.panX))/(base.s*view.z); var y=(e.clientY-rect.top  - (base.oy+view.panY))/(base.s*view.z); var nearest=null, dmin=1e9; Object.keys(coords).forEach(function(name){ if(name.indexOf('Z')===0){ var c=coords[name]; var d=Math.hypot(c.x-x,c.y-y); if(d<dmin){ dmin=d; nearest=name; } } }); if(nearest && dmin<=30/(base.s*view.z)){ rateTitle.textContent = nearest; if(rateModal && rateModal.showModal){ rateModal.showModal(); } else if(rateModal){ rateModal.style.display='block'; } setDebug('open '+nearest); }});
+
+    document.getElementById('btnCloseRate').addEventListener('click', function(ev){ ev.preventDefault(); if(rateModal.close) rateModal.close(); else rateModal.style.display='none'; setDebug('modal close'); });
+
+    /* ===== GPS toujours opérationnel (HTTPS/localhost) ===== */
+    var chipGps=document.getElementById('chipGps'), kpiPos=document.getElementById('kpiPos');
+    document.getElementById('btnGPS').addEventListener('click', function(){
+      if(!navigator.geolocation){ toast('GPS non disponible'); setDebug('no geolocation'); return; }
+      navigator.geolocation.getCurrentPosition(function(pos){
+        var lat=pos.coords.latitude, lon=pos.coords.longitude; chipGps.textContent='GPS: on'; kpiPos.textContent=lat.toFixed(5)+', '+lon.toFixed(5); setDebug('GPS ok');
+      }, function(err){ toast('Erreur GPS: '+err.message); setDebug('GPS error '+err.message); }, {enableHighAccuracy:true});
+    });
+
+    setDebug('READY');
+  });
+})();
 </script>
 </body>
 </html>
