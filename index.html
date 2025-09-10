@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>TICP • Localisation Déchets (GPS FIX)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
@@ -39,6 +39,7 @@
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   select,.choices__inner{width:100%}
 
+  /* Carte */
   .mapwrap{position:relative;width:100%;background:#0b1020}
   .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
   canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
@@ -86,7 +87,8 @@
   /* Galerie photos */
   .photos-grid{display:grid;gap:10px;margin-top:6px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
   .photo-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;display:grid;gap:8px}
-  .photo-card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f3f4f6}
+  .photo-card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f3f4f6;cursor:pointer;transition:transform .2s}
+  .photo-card img:hover{transform:scale(1.05)}
   .photo-card textarea{width:100%;min-height:58px;resize:vertical}
   .photo-card .row{justify-content:space-between}
   .photo-actions .btn.small{padding:6px 8px}
@@ -97,9 +99,15 @@
   .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
   .bar>span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#3b82f6)}
   .table{border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .table header,.table .row{display:grid;grid-template-columns:100px 80px 1fr 80px;gap:8px;padding:8px 10px}
+  .table header,.table .row{display:grid;grid-template-columns:80px 80px 80px 1fr 80px;gap:8px;padding:8px 10px}
   .table header{background:#f3f4f6;font-weight:600}
   .table .row:nth-child(even){background:#fafafa}
+
+  /* Lightbox */
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:100}
+  .lightbox img{max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 0 20px rgba(0,0,0,.6);transform-origin:center}
+  .lightbox .toolbar{position:absolute;top:16px;left:16px;display:flex;gap:8px}
+  .lightbox .close{position:absolute;top:16px;right:16px}
 </style>
 </head>
 <body>
@@ -253,12 +261,23 @@
   <div class="content grid">
     <div id="barsContainer" class="grid"></div>
     <div class="table">
-      <header><div>Zone</div><div>Groupe</div><div>Nb photos</div><div>Score</div></header>
+      <header><div>Zone</div><div>Groupe</div><div>Nb photos</div><div>Commentaire</div><div>Score</div></header>
       <div id="zoneRows"></div>
     </div>
   </div>
 </section>
 <div class="modal-backdrop" id="statsBackdrop" aria-hidden="true"></div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="toolbar">
+    <button class="btn secondary small" id="lbZoomOut">–</button>
+    <button class="btn secondary small" id="lbZoomReset">100%</button>
+    <button class="btn secondary small" id="lbZoomIn">+</button>
+  </div>
+  <button class="btn secondary small close" id="lbClose">Fermer</button>
+  <img id="lightboxImg" src="" alt="Agrandissement">
+</div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
@@ -346,6 +365,8 @@ const GROUPS = {
   SC:["Z1","Z4","Z6","Z7","Z8","Z35"],
   PRM:["Z2","Z9","Z10","Z11","Z13","Z15","Z32"],
 };
+/* Liste officielle à afficher : Z1 → Z35 */
+const ZONES_ALL = Array.from({length:35},(_,i)=>`Z${i+1}`);
 
 /* ===== UI : selects ===== */
 let choicesZone, choicesDechet;
@@ -378,36 +399,69 @@ const mapImg=$('#mapImage');
 const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
 let base={s:1,ox:0,oy:0,iw:1,ih:1}; let view={z:1, panX:0, panY:0};
 let dragging=false, lx=0, ly=0;
-function computeFit(){ const r=mapContainer.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1; const s=Math.min(r.width/base.iw, r.height/base.ih); base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2; }
-function applyLayout(){ const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z; mapImg.style.width=w+'px'; mapImg.style.height=h+'px'; mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px'; $('#kpiZoom').textContent=Math.round(view.z*100)+'%'; }
+
+function computeFit(){
+  const r=mapContainer.getBoundingClientRect();
+  canvas.width=r.width; canvas.height=r.height;
+  base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
+  const s=Math.min(r.width/base.iw, r.height/base.ih);
+  base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
+}
+function applyLayout(){
+  const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z;
+  mapImg.style.width=w+'px'; mapImg.style.height=h+'px';
+  mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px';
+  $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
+}
 function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
 new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
 mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
 if (mapImg.complete) setTimeout(fitAndCenter,0);
+
 function imgToScreen(pt){ return {x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z)}; }
 function screenToImg(x,y){ return {x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z)}; }
-function setZoom(z,cx,cy){ const MIN=0.1, MAX=4; z=Math.max(MIN,Math.min(MAX,z)); if(typeof cx==='number'){ const before=screenToImg(cx,cy); view.z=z; applyLayout(); const after=imgToScreen(before); view.panX += (cx-after.x); view.panY += (cy-after.y); } else view.z=z; applyLayout(); drawAll(); }
-$('#zPlus').onclick=()=>setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
-$('#zMinus').onclick=()=>setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick=()=>{ view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
-$('#btnFit').onclick=()=>fitAndCenter();
+
+// 🔒 Empêcher de dézoomer < 100 %
+function setZoom(z,cx,cy){
+  const MIN=1, MAX=4;
+  z=Math.max(MIN,Math.min(MAX,z));
+  if(typeof cx==='number' && typeof cy==='number'){
+    const before=screenToImg(cx,cy);
+    view.z=z; applyLayout();
+    const after=imgToScreen(before);
+    view.panX += (cx - after.x);
+    view.panY += (cy - after.y);
+  } else { view.z=z; }
+  applyLayout(); drawAll();
+}
+$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
+$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
+$('#btnFit').onclick = ()=> fitAndCenter();
+
 mapContainer.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId); });
-mapContainer.addEventListener('pointermove', e=>{ if(!dragging)return; view.panX+=e.clientX-lx; view.panY+=e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
-mapContainer.addEventListener('pointerup', ()=>dragging=false);
-mapContainer.addEventListener('pointercancel', ()=>dragging=false);
-mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const r=mapContainer.getBoundingClientRect(); setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-r.left, e.clientY-r.top); }, {passive:false});
+mapContainer.addEventListener('pointermove', e=>{ if(!dragging) return; view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
+mapContainer.addEventListener('pointerup', ()=> dragging=false);
+mapContainer.addEventListener('pointercancel', ()=> dragging=false);
+mapContainer.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const r=mapContainer.getBoundingClientRect();
+  setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-r.left, e.clientY-r.top);
+},{passive:false});
 
 /* ===== Dessin + état ===== */
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
-const zonePoints=Object.keys(coords).filter(k=>/^Z\d+/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-const STORE_KEY='zoneReports.v3'; // nouvelle version pour multi-photos
+const zonePoints=Object.keys(coords).filter(k=>/^Z\d+$/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
+const STORE_KEY='zoneReports.v3';
 let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
 const isZoneDone=z=>!!reports[z];
 
 function drawAll(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(route){ const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
-    ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)'; ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore();
+  if(route){
+    const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
+    ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)';
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore();
     const rad=8+4*Math.abs(Math.sin(performance.now()/350));
     ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
     ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke();
@@ -420,50 +474,93 @@ function drawAll(){
   for(const h of hotspots){ const p=imgToScreen(h); ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke(); }
   if(userPos){
     const p=imgToScreen(userPos);
-    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill(); ctx.strokeStyle='#065f46'; ctx.stroke();
-    const angRad=normalizedHeadingRad(); if(angRad!=null){ const ang=angRad-Math.PI/2, len=80; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
-      ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath(); ctx.fillStyle='#2563eb'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath(); ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill();
+    ctx.strokeStyle='#065f46'; ctx.stroke();
+    const angRad=normalizedHeadingRad(); if(angRad!=null){
+      const ang=angRad - Math.PI/2, len=80;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
+      ctx.fillStyle='#2563eb'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath();
+      ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill();
       ctx.restore();
     }
   }
 }
 (function loop(){ requestAnimationFrame(loop); drawAll(); })();
 
-/* ===== Tracer / Pick ===== */
+/* ===== Tracer / Effacer / Pick ===== */
 $('#btnOK').addEventListener('click', ()=>{
   const dep=$('#zoneSelect').value; const waste=$('#dechetSelect').value.toLowerCase().trim();
   let origin=null; if(dep && coords[dep]) origin=coords[dep]; if(!origin && userPos) origin=userPos;
   if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; }
+
   let best=null,dmin=Infinity;
   for(const z in dechetsParZone){
     if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){
-      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y); if(d<dmin){ dmin=d; best=z; }
+      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y);
+      if(d<dmin){ dmin=d; best=z; }
     }
   }
   if(!best){ toast('Aucune zone pour ce déchet.'); return; }
+
   updateInfoPanel(best);
-  route={from:{...origin}, to:{x:coords[best].x, y:coords[best].y}}; hotspots=[{x:coords[best].x,y:coords[best].y,r:12,zone:best}];
+  route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} };
+  hotspots=[{ x:coords[best].x, y:coords[best].y, r:12, zone:best }];
 });
 $('#btnClear').addEventListener('click', ()=>{ route=null; hotspots=[]; drawAll(); });
-let pick=false; $('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l\u2019emplacement':'Sélection par clic désactivée'); });
+
+let pick=false;
+$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
 mapContainer.addEventListener('click', e=>{
-  const r=mapContainer.getBoundingClientRect(); const sx=e.clientX-r.left, sy=e.clientY-r.top;
+  const r=mapContainer.getBoundingClientRect();
+  const sx=e.clientX-r.left, sy=e.clientY-r.top;
   if(pick){
-    const imgPt=screenToImg(sx,sy); let best=null,dmin=Infinity;
-    Object.keys(coords).forEach(name=>{ if(!/^Z\d+/i.test(name)){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; best=name; } }});
+    const imgPt=screenToImg(sx,sy);
+    let best=null,dmin=Infinity;
+    Object.keys(coords).forEach(name=>{
+      if(!/^Z\d+$/i.test(name)){
+        const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y);
+        if(d<dmin){ dmin=d; best=name; }
+      }
+    });
     if(best){ choicesZone.setChoiceByValue(best); $('#zoneSelect').dispatchEvent(new Event('change')); pick=false; return; }
   }
-  const nearest=getNearestZoneAtScreenPoint(sx,sy); if(nearest && nearest.dist<=20){ openZoneForm(nearest.zone); }
+  const nearest=getNearestZoneAtScreenPoint(sx,sy);
+  if(nearest && nearest.dist<=20){ openZoneForm(nearest.zone); }
 });
-function getNearestZoneAtScreenPoint(sx,sy){ let best=null,dmin=Infinity; for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } } return best?{zone:best,dist:dmin}:null; }
+function getNearestZoneAtScreenPoint(sx,sy){
+  let best=null,dmin=Infinity;
+  for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } }
+  return best?{zone:best,dist:dmin}:null;
+}
 
 /* ===== GPS + Boussole ===== */
-function screenOrientationAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
-function normalizedHeadingDeg(){ if(headingDegRaw==null) return null; let h; if(headingSource==='ios'){ h=headingDegRaw; } else { h=360-headingDegRaw; h+=screenOrientationAngle(); } h+=compassOffsetDeg; return ((h%360)+360)%360; }
+function screenOrientationAngle(){
+  const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
+  return ((a%360)+360)%360;
+}
+function normalizedHeadingDeg(){
+  if (headingDegRaw==null) return null;
+  let h;
+  if (headingSource==='ios'){ h=headingDegRaw; }
+  else { h=360-headingDegRaw; h+=screenOrientationAngle(); }
+  h+=compassOffsetDeg; return ((h%360)+360)%360;
+}
 function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
-function handleOrient(e){ if(typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; } else if(typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; } const h=normalizedHeadingDeg(); $('#chipCompass').textContent=h==null?'Boussole: off':`Boussole: on (${Math.round(compassOffsetDeg)}°)`; $('#kpiHead').textContent=h==null?'—':(Math.round(h)+'°'); }
-function calibrateCompassToZero(){ const h=normalizedHeadingDeg() ?? headingDegRaw; if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; } compassOffsetDeg=(( -h )%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`); }
+function handleOrient(e){
+  if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; }
+  else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; }
+  const h=normalizedHeadingDeg();
+  $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`;
+  $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°');
+}
+function calibrateCompassToZero(){
+  const h=normalizedHeadingDeg() ?? headingDegRaw;
+  if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; }
+  compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
+  toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`);
+}
 function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
 $('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
 $('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
@@ -473,18 +570,54 @@ let watchId=null, compassEnabled=false;
 $('#btnGPS').addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('GPS non disponible'); return; }
   if(watchId==null){
-    // Projection GPS via barycentrique (identique à version précédente)
-    const calibration=[{lat:45.193611,lon:0.705167,x:coords["Z12"].x,y:coords["Z12"].y},{lat:45.192694,lon:0.706000,x:coords["Z5"].x,y:coords["Z5"].y},{lat:45.192194,lon:0.706083,x:coords["MABOR"].x,y:coords["MABOR"].y}];
-    function gpsToPixel(lat,lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3*Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320; function bary(px,py,x0,y0,x1,y1,x2,y2){ const detT=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/detT; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/detT; const w=1-u-v; return [u,v,w]; } const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky; const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return {x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y}; }
-    watchId = navigator.geolocation.watchPosition(pos=>{ const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude); userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`; $('#chipGps').textContent='GPS: on'; }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
+    const calibration = [
+      {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y},
+      {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},
+      {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y}
+    ];
+    function gpsToPixel(lat, lon) {
+      const [P0, P1, P2] = calibration;
+      const lat0 = P0.lat, lon0 = P0.lon;
+      const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
+      const kx = 111320 * Math.cos(avgLat), ky = 111320;
+      function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
+        const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
+        const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
+        const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
+        const w = 1 - u - v;
+        return [u, v, w];
+      }
+      const px = (lon - lon0) * kx;
+      const py = (lat - lat0) * ky;
+      const x1 = (P1.lon - lon0) * kx, y1 = (P1.lat - lat0) * ky;
+      const x2 = (P2.lon - lon0) * kx, y2 = (P2.lat - lat0) * ky;
+      const [u, v, w] = barycentric(px, py, 0, 0, x1, y1, x2, y2);
+      return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
+    }
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+      userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
+      $('#chipGps').textContent='GPS: on';
+    }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
   }
   if(!compassEnabled){
     if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-      DeviceOrientationEvent.requestPermission().then(res=>{ if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; } else { $('#chipCompass').textContent='Boussole: refusée'; } }).catch(()=> toast('Boussole indisponible'));
-    }else{ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
-    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); } else { window.addEventListener('orientationchange', handleOrient); }
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
+        else { $('#chipCompass').textContent='Boussole: refusée'; }
+      }).catch(()=> toast('Boussole indisponible'));
+    }else{
+      window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true;
+    }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){
+      screen.orientation.addEventListener('change', handleOrient);
+    } else { window.addEventListener('orientationchange', handleOrient); }
   }
-  const sel=$('#zoneSelect'); if (![...sel.options].some(o=>o.value==='Ma localisation')) sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
+
+  const sel=$('#zoneSelect');
+  if (![...sel.options].some(o=>o.value==='Ma localisation')){
+    sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
+  }
   if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
 });
 
@@ -493,23 +626,31 @@ const modal=$('#zoneModal'), backdrop=$('#modalBackdrop');
 const titleEl=$('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
 const checksContainers=()=>[...document.querySelectorAll('.checks')];
 let currentZone=null, gravite=false;
-let photosLocal=[]; // [{dataUrl, comment, ts}]
 
+let photosLocal=[]; // [{dataUrl, comment, ts}]
 const photosInput = document.getElementById('photosInput');
 const photosList  = document.getElementById('photosList');
 const btnAddFromCam = document.getElementById('btnAddFromCam');
 
 async function addFilesToGallery(fileList){
   const files = Array.from(fileList||[]);
-  for(const f of files){ try{ const dataUrl=await fileToDataURL(f); photosLocal.push({dataUrl, comment:'', ts:Date.now()}); }catch(_){} }
+  for(const f of files){
+    try{ const dataUrl = await fileToDataURL(f); photosLocal.push({ dataUrl, comment:'', ts: Date.now() }); }catch(_){}
+  }
   renderPhotos();
 }
 function renderPhotos(){
-  if(!photosLocal.length){ photosList.classList.add('muted'); photosList.innerHTML='Aucune photo pour le moment'; return; }
-  photosList.classList.remove('muted'); photosList.innerHTML='';
+  if(!photosLocal.length){
+    photosList.classList.add('muted');
+    photosList.innerHTML = 'Aucune photo pour le moment';
+    return;
+  }
+  photosList.classList.remove('muted');
+  photosList.innerHTML = '';
   photosLocal.forEach((p,idx)=>{
-    const card=document.createElement('div'); card.className='photo-card';
-    card.innerHTML=`
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `
       <img src="${p.dataUrl}" alt="Écart ${idx+1}">
       <textarea placeholder="Commentaire de la photo...">${p.comment||''}</textarea>
       <div class="row photo-actions">
@@ -518,19 +659,42 @@ function renderPhotos(){
           <button type="button" class="btn secondary small" data-act="replace" data-idx="${idx}">Remplacer</button>
           <button type="button" class="btn secondary small" data-act="delete" data-idx="${idx}">Supprimer</button>
         </div>
-      </div>`;
-    const ta=card.querySelector('textarea'); ta.addEventListener('input', ()=>{ photosLocal[idx].comment=ta.value; });
+      </div>
+    `;
+    const ta = card.querySelector('textarea');
+    ta.addEventListener('input', ()=>{ photosLocal[idx].comment = ta.value; });
+
+    // Ouvrir la lightbox sur clic vignette
+    const img = card.querySelector('img');
+    img.addEventListener('click',()=> openLightboxFromSrc(p.dataUrl));
+
     photosList.appendChild(card);
   });
 }
 photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
 btnAddFromCam.addEventListener('click', ()=>{ photosInput.setAttribute('capture','environment'); photosInput.click(); });
+
+// délégués : remplacer/supprimer
 photosList.addEventListener('click', async (e)=>{
-  const btn=e.target.closest('button[data-act]'); if(!btn) return; const idx=parseInt(btn.dataset.idx,10); if(Number.isNaN(idx)) return;
-  if(btn.dataset.act==='delete'){ photosLocal.splice(idx,1); renderPhotos(); }
-  else if(btn.dataset.act==='replace'){
-    const tmp=document.createElement('input'); tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
-    tmp.addEventListener('change', async ()=>{ if(tmp.files && tmp.files[0]){ const dataUrl=await fileToDataURL(tmp.files[0]); photosLocal[idx].dataUrl=dataUrl; photosLocal[idx].ts=Date.now(); renderPhotos(); } });
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx,10);
+  if(Number.isNaN(idx)) return;
+
+  if(btn.dataset.act === 'delete'){
+    photosLocal.splice(idx,1);
+    renderPhotos();
+  }else if(btn.dataset.act === 'replace'){
+    const tmp = document.createElement('input');
+    tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
+    tmp.addEventListener('change', async ()=>{
+      if(tmp.files && tmp.files[0]){
+        const dataUrl = await fileToDataURL(tmp.files[0]);
+        photosLocal[idx].dataUrl = dataUrl;
+        photosLocal[idx].ts = Date.now();
+        renderPhotos();
+      }
+    });
     tmp.click();
   }
 });
@@ -540,18 +704,21 @@ function openZoneForm(zone){
   titleEl.textContent=`Fiche • ${zone}`;
   subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
   checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
+
   photosInput.value=''; photosLocal=[]; renderPhotos();
+
   const saved=reports[zone];
   if(saved){
     const idxByKey=saved.scores||{};
     checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
-    // migration ancien schéma (photo/comment global)
     if(saved.photo && (!saved.photos || !saved.photos.length)){
-      saved.photos=[{dataUrl:saved.photo, comment:saved.comment||'', ts:saved.savedAt||Date.now()}];
+      saved.photos = [{ dataUrl: saved.photo, comment: saved.comment||'', ts: saved.savedAt || Date.now() }];
     }
-    if(saved.photos && Array.isArray(saved.photos)) photosLocal=saved.photos.map(p=>({dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now()}));
-    renderPhotos();
+    if(saved.photos && Array.isArray(saved.photos)){
+      photosLocal = saved.photos.map(p=>({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() }));
+      renderPhotos();
+    }
   }
   updateTotalChip();
   modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); backdrop.style.display='block';
@@ -561,46 +728,98 @@ $('#btnCloseModal').addEventListener('click', closeZoneForm);
 backdrop.addEventListener('click', closeZoneForm);
 
 // Gravité + cases exclusives
-$('#btnGravite').addEventListener('click', ()=>{ gravite=!gravite; $('#btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
-document.addEventListener('change', e=>{ const cb=e.target; if(cb.matches('.checks input[type="checkbox"]')){ const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')]; if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); } updateTotalChip(); }});
+document.getElementById('btnGravite').addEventListener('click', ()=>{ gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
+document.addEventListener('change', e=>{
+  const cb=e.target;
+  if(cb.matches('.checks input[type="checkbox"]')){
+    const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')];
+    if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); }
+    updateTotalChip();
+  }
+});
 function fractionForIndex(idx){ return [1,0.75,0.5,0.25][idx] ?? 0; }
-function computeRawTotalAndDetail(){ let total=0, detail={}; const perCrit={};
-  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; const score=(idx>=0? max*fractionForIndex(idx) : 0); total+=score; perCrit[key]=score; });
-  return {raw:total, detail, perCrit};
+function computeRawTotalAndDetail(){ let total=0, detail={};
+  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; if(idx>=0) total+=max*fractionForIndex(idx); });
+  return {raw:total, detail};
 }
 function adjustedScore(raw){ return gravite ? raw/5 : raw; }
 function updateTotalChip(){ const {raw}=computeRawTotalAndDetail(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
 
 $('#btnSaveZone').addEventListener('click', ()=>{
-  if(!currentZone) return; const {raw, detail}=computeRawTotalAndDetail(); const totalAdj=Math.round(adjustedScore(raw));
-  reports[currentZone]={ scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.slice(0) };
+  if(!currentZone) return;
+  const {raw,detail}=computeRawTotalAndDetail();
+  const totalAdj=Math.round(adjustedScore(raw));
+  reports[currentZone]={scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.slice(0)};
   localStorage.setItem(STORE_KEY, JSON.stringify(reports));
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
   closeZoneForm(); drawAll();
 });
-$('#btnClearZone').addEventListener('click', ()=>{ checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false)); gravite=false; $('#btnGravite').classList.remove('on'); photosInput.value=''; photosLocal=[]; renderPhotos(); updateTotalChip(); });
+$('#btnClearZone').addEventListener('click', ()=>{ checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false)); gravite=false; document.getElementById('btnGravite').classList.remove('on'); photosInput.value=''; photosLocal=[]; renderPhotos(); updateTotalChip(); });
 
 /* ===== Stats/Graphiques ===== */
 const statsModal=$('#statsModal'), statsBackdrop=$('#statsBackdrop');
 $('#btnOpenStats').addEventListener('click', openStats);
 $('#btnCloseStats').addEventListener('click', closeStats);
 statsBackdrop.addEventListener('click', closeStats);
-function groupOf(zone){ for(const [g,arr] of Object.entries(GROUPS)){ if(arr.includes(zone)) return g; } return '—'; }
+
+function groupOf(zone){
+  for(const [g,arr] of Object.entries(GROUPS)){ if(arr.includes(zone)) return g; }
+  return '—';
+}
 function openStats(){ renderStats(); statsModal.classList.add('open'); statsModal.setAttribute('aria-hidden','false'); statsBackdrop.style.display='block'; }
 function closeStats(){ statsModal.classList.remove('open'); statsModal.setAttribute('aria-hidden','true'); statsBackdrop.style.display='none'; }
+
 function renderStats(){
   const bars=$('#barsContainer'); bars.innerHTML=''; const rows=$('#zoneRows'); rows.innerHTML='';
-  const perGroup={}; Object.entries(GROUPS).forEach(([g,zs])=>{ const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null); const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0; perGroup[g]={avg,count:done.length,totalZones:zs.length}; });
-  const allScores=Object.values(reports).map(r=>r.total); const globalAvg=allScores.length?(allScores.reduce((a,b)=>a+b,0)/allScores.length):0; const globalSum=allScores.reduce((a,b)=>a+b,0);
-  $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • Total ${globalSum} pts • ${allScores.length} zone(s)`;
-  Object.entries(perGroup).forEach(([g,info])=>{ const row=document.createElement('div'); row.className='barrow'; const label=document.createElement('div'); label.textContent=g; const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill); const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%'; row.appendChild(label); row.appendChild(bar); row.appendChild(pct); const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`; bars.appendChild(row); bars.appendChild(meta); });
-  const zonesAll=[].concat(...Object.values(GROUPS)); zonesAll.forEach(z=>{ const g=groupOf(z); const r=reports[z]; const div=document.createElement('div'); div.className='row'; const c1=document.createElement('div'); c1.textContent=z; const c2=document.createElement('div'); c2.textContent=g; const c3=document.createElement('div'); c3.textContent=(r && r.photos)? r.photos.length : 0; const c4=document.createElement('div'); c4.style.textAlign='right'; c4.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—'); div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4); rows.appendChild(div); });
+
+  // Averages per group
+  const perGroup={};
+  Object.entries(GROUPS).forEach(([g,zs])=>{
+    const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
+    const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0;
+    perGroup[g]={avg, count:done.length, totalZones:zs.length};
+  });
+
+  const allScores=Object.values(reports).map(r=>r.total);
+  const globalAvg=allScores.length?(allScores.reduce((a,b)=>a+b,0)/allScores.length):0;
+  const globalSum=allScores.reduce((a,b)=>a+b,0);
+  $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • Total ${globalSum} pts • ${allScores.length} zone(s) notée(s)`;
+
+  Object.entries(perGroup).forEach(([g,info])=>{
+    const row=document.createElement('div'); row.className='barrow';
+    const label=document.createElement('div'); label.textContent=g;
+    const bar=document.createElement('div'); bar.className='bar';
+    const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill);
+    const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%';
+    row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
+    const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`;
+    bars.appendChild(row); bars.appendChild(meta);
+  });
+
+  // 🔎 Toujours afficher les 35 zones (Z1 → Z35), même non notées
+  ZONES_ALL.forEach(z=>{
+    const g=groupOf(z);
+    const r=reports[z];
+    const div=document.createElement('div'); div.className='row';
+    const c1=document.createElement('div'); c1.textContent=z;
+    const c2=document.createElement('div'); c2.textContent=g;
+    const c3=document.createElement('div'); c3.textContent=(r && r.photos)? r.photos.length : 0;
+    const c4=document.createElement('div'); c4.textContent=r?.photos?.[0]?.comment ? r.photos[0].comment : '';
+    const c5=document.createElement('div'); c5.style.textAlign='right'; c5.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—');
+    div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4); div.appendChild(c5);
+    rows.appendChild(div);
+  });
 }
 
 /* ===== Réinitialiser toute la tournée ===== */
 document.getElementById('btnResetAll').addEventListener('click', ()=>{
-  if(!confirm('Confirmer la réinitialisation complète de la tournée ?')) return;
-  reports={}; localStorage.removeItem(STORE_KEY); toast('Tournée réinitialisée.'); drawAll(); if(statsModal.classList.contains('open')) renderStats();
+  const confirmMsg = 'Confirmer la réinitialisation ?\nToutes les fiches enregistrées seront supprimées.';
+  if(!confirm(confirmMsg)) return;
+  localStorage.removeItem(STORE_KEY);
+  reports = {};
+  toast('Tournée réinitialisée.');
+  drawAll();
+  if(statsModal.classList.contains('open')) renderStats();
 });
 
 /* ===== Export XLS (avec miniatures photos + totaux) ===== */
@@ -611,12 +830,15 @@ function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx
 
 function buildExport(){
   const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
-  const zonesAll=[].concat(...Object.values(GROUPS));
-  const rows=[]; // par zone
-  const photosRows=[]; // feuille photos
-  zonesAll.forEach(z=>{
-    const r=reports[z]; if(!r) return; const s=r.scores||{};
-    const row={
+  const rows=[];  // par zone
+  const photosRows=[]; // section photos
+
+  ZONES_ALL.forEach(z=>{
+    const r=reports[z]; if(!r) { // inclure ligne vide pour zones non notées ? Non, export = tournée en cours
+      return;
+    }
+    const s=r.scores||{};
+    rows.push({
       Zone:z,
       Groupe:groupOf(z),
       Propreté:scoreFromIdx(criteriaMax.proprete, s.proprete ?? -1),
@@ -629,9 +851,17 @@ function buildExport(){
       Total:r.total,
       NbPhotos:(r.photos && Array.isArray(r.photos)) ? r.photos.length : 0,
       Date: r.savedAt ? new Date(r.savedAt).toLocaleString() : ''
-    };
-    rows.push(row);
-    (r.photos||[]).forEach((p,i)=>{ photosRows.push({ Zone:z, Groupe:groupOf(z), Index:i+1, Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(), Commentaire:p.comment||'', DataUrl:p.dataUrl }); });
+    });
+    (r.photos||[]).forEach((p,i)=>{
+      photosRows.push({
+        Zone:z,
+        Groupe:groupOf(z),
+        Index:i+1,
+        Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(),
+        Commentaire:p.comment||'',
+        DataUrl:p.dataUrl
+      });
+    });
   });
   return {rows, photosRows};
 }
@@ -647,29 +877,29 @@ function exportXls(){
   const perGroup = {};
   rows.forEach(r=>{ perGroup[r.Groupe] ??= {sum:0,count:0}; perGroup[r.Groupe].sum+= (r.Total||0); perGroup[r.Groupe].count++; });
 
-  // Table principale
   const headers1 = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Nb photos','Date'];
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
   let html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>';
   html += '<h2>Résumé de tournée</h2>';
-  html += `<p><b>Total toutes les zones notées :</b> ${totalAll} points — <b>Moyenne globale :</b> ${avgAll}% — <b>Zones notées :</b> ${rows.length}</p>`;
+  html += `<p><b>Total toutes les zones notées :</b> ${totalAll} points — <b>Moyenne globale :</b> ${avgAll}% — <b>Zones notées :</b> ${rows.length} / 35</p>`;
 
   html += '<table border="1"><thead><tr>'+headers1.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
   rows.forEach(r=>{ html += '<tr>'+headers1.map(h=>`<td>${esc(r[h]??'')}</td>`).join('')+'</tr>'; });
   html += '</tbody></table>';
 
-  // Moyennes par groupe
   html += '<br/><h3>Moyennes par groupe</h3>';
   html += '<table border="1"><thead><tr><th>Groupe</th><th>Zones notées</th><th>Moyenne</th><th>Somme</th></tr></thead><tbody>';
-  Object.entries(perGroup).forEach(([g,st])=>{ const avg = st.count? Math.round(st.sum/st.count) : 0; html += `<tr><td>${esc(g)}</td><td>${st.count}</td><td>${avg}%</td><td>${st.sum}</td></tr>`; });
+  Object.entries(perGroup).forEach(([g,st])=>{
+    const avg = st.count? Math.round(st.sum/st.count) : 0;
+    html += `<tr><td>${esc(g)}</td><td>${st.count}</td><td>${avg}%</td><td>${st.sum}</td></tr>`;
+  });
   html += '</tbody></table>';
 
-  // Feuille photos (même fichier, section séparée). Excel affichera les IMG data: si compatible.
   if(photosRows.length){
     html += '<br/><h3>Écarts (photos)</h3>';
     html += '<table border="1"><thead><tr><th>Zone</th><th>Groupe</th><th>#</th><th>Date</th><th>Commentaire</th><th>Image</th></tr></thead><tbody>';
     photosRows.forEach(p=>{
-      // miniatures pour éviter des fichiers trop lourds (Excel affichera l'image). Si Excel ne supporte pas data:URL, prévoir export ZIP ultérieur.
       html += `<tr><td>${esc(p.Zone)}</td><td>${esc(p.Groupe)}</td><td>${p.Index}</td><td>${esc(p.Date)}</td><td>${esc(p.Commentaire)}</td><td><img src="${p.DataUrl}" alt="photo" width="220"></td></tr>`;
     });
     html += '</tbody></table>';
@@ -684,6 +914,49 @@ function exportXls(){
   a.href = url; a.download = `tournee-dechets_${dateStr}.xls`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   toast('Export XLS généré.');
 }
+
+/* ===== Lightbox ===== */
+const lightbox = document.getElementById('lightbox');
+const lbImg    = document.getElementById('lightboxImg');
+const lbClose  = document.getElementById('lbClose');
+const lbIn     = document.getElementById('lbZoomIn');
+const lbOut    = document.getElementById('lbZoomOut');
+const lbReset  = document.getElementById('lbZoomReset');
+
+let lbScale = 1, lbX = 0, lbY = 0, lbDrag = false, lbLX = 0, lbLY = 0;
+
+function applyLbTransform(){
+  lbImg.style.transform = `translate(${lbX}px, ${lbY}px) scale(${lbScale})`;
+}
+function openLightboxFromSrc(src){
+  lbImg.src = src; lbScale = 1; lbX = 0; lbY = 0; applyLbTransform();
+  lightbox.style.display = 'flex';
+  lightbox.setAttribute('aria-hidden','false');
+}
+function closeLightbox(){
+  lightbox.style.display = 'none';
+  lightbox.setAttribute('aria-hidden','true');
+  lbImg.src = '';
+}
+lbClose.addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e)=>{ if(e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && lightbox.style.display === 'flex') closeLightbox(); });
+
+lbIn.addEventListener('click', ()=>{ lbScale = Math.min(6, lbScale + 0.25); applyLbTransform(); });
+lbOut.addEventListener('click', ()=>{ lbScale = Math.max(1, lbScale - 0.25); applyLbTransform(); });
+lbReset.addEventListener('click', ()=>{ lbScale = 1; lbX = 0; lbY = 0; applyLbTransform(); });
+
+lbImg.addEventListener('pointerdown', (e)=>{ lbDrag = true; lbLX = e.clientX; lbLY = e.clientY; lbImg.setPointerCapture(e.pointerId); });
+lbImg.addEventListener('pointermove', (e)=>{ if(!lbDrag) return; lbX += e.clientX - lbLX; lbY += e.clientY - lbLY; lbLX = e.clientX; lbLY = e.clientY; applyLbTransform(); });
+lbImg.addEventListener('pointerup',   ()=>{ lbDrag = false; });
+lbImg.addEventListener('pointercancel',()=>{ lbDrag = false; });
+
+lbImg.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  lbScale = Math.max(1, Math.min(6, lbScale + delta));
+  applyLbTransform();
+}, {passive:false});
 
 /* ===== Init ===== */
 function init(){ initChoices(); fitAndCenter(); }
