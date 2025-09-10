@@ -69,20 +69,30 @@
     .panel .close{ display:none }
   }
 
+  /* Modals */
   .modal-backdrop{position:fixed;inset:0;background:rgba(2,8,23,.42);backdrop-filter:blur(2px);display:none;z-index:60}
   .modal{position:fixed;right:0;top:0;height:100%;width:min(560px,94vw);background:#fff;border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(2,8,23,.25);transform:translateX(100%);transition:transform .25s ease;z-index:70;display:flex;flex-direction:column}
   .modal.open + .modal-backdrop{display:block}
   .modal.open{transform:translateX(0)}
   .modal header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .modal .content{padding:14px 16px;overflow:auto;flex:1}
+
   .crit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
   .crit .checks{display:flex;gap:8px}
   .crit small{color:var(--muted)}
   .checks input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
-  .thumb{width:100%;max-height:200px;object-fit:contain;border:1px dashed var(--line);border-radius:10px}
   .muted{color:var(--muted);font-size:12px}
 
-  .modal.stats{width:min(720px,96vw)}
+  /* Galerie photos */
+  .photos-grid{display:grid;gap:10px;margin-top:6px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .photo-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;display:grid;gap:8px}
+  .photo-card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f3f4f6}
+  .photo-card textarea{width:100%;min-height:58px;resize:vertical}
+  .photo-card .row{justify-content:space-between}
+  .photo-actions .btn.small{padding:6px 8px}
+
+  /* Stats */
+  .modal.stats{width:min(780px,96vw)}
   .barrow{display:grid;grid-template-columns:120px 1fr 54px;gap:8px;align-items:center}
   .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
   .bar>span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#3b82f6)}
@@ -211,14 +221,15 @@
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
       </div></div>
 
+    <!-- Galerie multi-photos avec commentaires individuels -->
     <div class="field">
-      <label>Photo de la zone</label>
-      <input type="file" id="photoInput" accept="image/*" capture="environment"/>
-      <img id="photoPreview" class="thumb" alt="Aperçu" style="display:none"/>
-    </div>
-    <div class="field">
-      <label for="photoComment">Commentaire</label>
-      <textarea id="photoComment" rows="3" placeholder="Observations…"></textarea>
+      <label>Écarts constatés (photos + commentaires)</label>
+      <div class="row">
+        <input type="file" id="photosInput" accept="image/*" capture="environment" multiple />
+        <button class="btn secondary small" id="btnAddFromCam" type="button">Prendre une photo</button>
+      </div>
+      <div id="photosList" class="photos-grid muted">Aucune photo pour le moment</div>
+      <div class="muted">Astuce : sélection multiple possible. Chaque photo possède son propre commentaire.</div>
     </div>
 
     <div class="row">
@@ -242,7 +253,7 @@
   <div class="content grid">
     <div id="barsContainer" class="grid"></div>
     <div class="table">
-      <header><div>Zone</div><div>Groupe</div><div>Commentaire</div><div>Score</div></header>
+      <header><div>Zone</div><div>Groupe</div><div>Nb photos</div><div>Score</div></header>
       <div id="zoneRows"></div>
     </div>
   </div>
@@ -258,6 +269,7 @@
 /* ===== Helpers ===== */
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
+function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
 
 /* ===== Panneau ===== */
 const panel = $('#panel');
@@ -265,34 +277,34 @@ $('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open
 $('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
 /* ===== Données ===== */
-const coords = {/* … mêmes coordonnées que précédemment … */ 
-"MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
-"MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
-"MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
-"MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
-"MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
-"MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
-"MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
-"PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
-"PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
-"PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
-"PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
-"SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
-"SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
-"MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
-"Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
-"Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
-"Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
-"Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
-"Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
-"Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
-"Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
-"Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
-"Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
-"Bureau Administratif":{x:1524,y:152}
+const coords = {
+  "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+  "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+  "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+  "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+  "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+  "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+  "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+  "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+  "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+  "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+  "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+  "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+  "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+  "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+  "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+  "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+  "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+  "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+  "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+  "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+  "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+  "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+  "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
+  "Bureau Administratif":{x:1524,y:152}
 };
 
-const dechetsParZone = {/* idem que précédemment */ 
+const dechetsParZone = {
   Z1:["Bois","Carton","Bac noir","Plastique"],
   Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
   Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
@@ -388,7 +400,7 @@ mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const r=mapConta
 /* ===== Dessin + état ===== */
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
 const zonePoints=Object.keys(coords).filter(k=>/^Z\d+/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-const STORE_KEY='zoneReports.v2';
+const STORE_KEY='zoneReports.v3'; // nouvelle version pour multi-photos
 let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
 const isZoneDone=z=>!!reports[z];
 
@@ -434,7 +446,7 @@ $('#btnOK').addEventListener('click', ()=>{
   route={from:{...origin}, to:{x:coords[best].x, y:coords[best].y}}; hotspots=[{x:coords[best].x,y:coords[best].y,r:12,zone:best}];
 });
 $('#btnClear').addEventListener('click', ()=>{ route=null; hotspots=[]; drawAll(); });
-let pick=false; $('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
+let pick=false; $('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l\u2019emplacement':'Sélection par clic désactivée'); });
 mapContainer.addEventListener('click', e=>{
   const r=mapContainer.getBoundingClientRect(); const sx=e.clientX-r.left, sy=e.clientY-r.top;
   if(pick){
@@ -447,10 +459,6 @@ mapContainer.addEventListener('click', e=>{
 function getNearestZoneAtScreenPoint(sx,sy){ let best=null,dmin=Infinity; for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } } return best?{zone:best,dist:dmin}:null; }
 
 /* ===== GPS + Boussole ===== */
-const calibration=[{lat:45.193611,lon:0.705167,x:coords["Z12"].x,y:coords["Z12"].y},{lat:45.192694,lon:0.706000,x:coords["Z5"].x,y:coords["Z5"].y},{lat:45.192194,lon:0.706083,x:coords["MABOR"].x,y:coords["MABOR"].y}];
-function gpsToPixel(lat,lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3*Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320;
-  function bary(px,py,x0,y0,x1,y1,x2,y2){ const detT=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/detT; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/detT; const w=1-u-v; return [u,v,w]; }
-  const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky; const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return {x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y}; }
 function screenOrientationAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
 function normalizedHeadingDeg(){ if(headingDegRaw==null) return null; let h; if(headingSource==='ios'){ h=headingDegRaw; } else { h=360-headingDegRaw; h+=screenOrientationAngle(); } h+=compassOffsetDeg; return ((h%360)+360)%360; }
 function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
@@ -465,22 +473,16 @@ let watchId=null, compassEnabled=false;
 $('#btnGPS').addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('GPS non disponible'); return; }
   if(watchId==null){
-    watchId = navigator.geolocation.watchPosition(pos=>{
-      const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude);
-      userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`; $('#chipGps').textContent='GPS: on';
-    }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
+    // Projection GPS via barycentrique (identique à version précédente)
+    const calibration=[{lat:45.193611,lon:0.705167,x:coords["Z12"].x,y:coords["Z12"].y},{lat:45.192694,lon:0.706000,x:coords["Z5"].x,y:coords["Z5"].y},{lat:45.192194,lon:0.706083,x:coords["MABOR"].x,y:coords["MABOR"].y}];
+    function gpsToPixel(lat,lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3*Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320; function bary(px,py,x0,y0,x1,y1,x2,y2){ const detT=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/detT; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/detT; const w=1-u-v; return [u,v,w]; } const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky; const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return {x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y}; }
+    watchId = navigator.geolocation.watchPosition(pos=>{ const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude); userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`; $('#chipGps').textContent='GPS: on'; }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
   }
   if(!compassEnabled){
     if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-      DeviceOrientationEvent.requestPermission().then(res=>{
-        if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
-        else { $('#chipCompass').textContent='Boussole: refusée'; }
-      }).catch(()=> toast('Boussole indisponible'));
-    }else{
-      window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true;
-    }
-    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); }
-    else { window.addEventListener('orientationchange', handleOrient); }
+      DeviceOrientationEvent.requestPermission().then(res=>{ if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; } else { $('#chipCompass').textContent='Boussole: refusée'; } }).catch(()=> toast('Boussole indisponible'));
+    }else{ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); } else { window.addEventListener('orientationchange', handleOrient); }
   }
   const sel=$('#zoneSelect'); if (![...sel.options].some(o=>o.value==='Ma localisation')) sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
   if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
@@ -491,20 +493,65 @@ const modal=$('#zoneModal'), backdrop=$('#modalBackdrop');
 const titleEl=$('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
 const checksContainers=()=>[...document.querySelectorAll('.checks')];
 let currentZone=null, gravite=false;
+let photosLocal=[]; // [{dataUrl, comment, ts}]
+
+const photosInput = document.getElementById('photosInput');
+const photosList  = document.getElementById('photosList');
+const btnAddFromCam = document.getElementById('btnAddFromCam');
+
+async function addFilesToGallery(fileList){
+  const files = Array.from(fileList||[]);
+  for(const f of files){ try{ const dataUrl=await fileToDataURL(f); photosLocal.push({dataUrl, comment:'', ts:Date.now()}); }catch(_){} }
+  renderPhotos();
+}
+function renderPhotos(){
+  if(!photosLocal.length){ photosList.classList.add('muted'); photosList.innerHTML='Aucune photo pour le moment'; return; }
+  photosList.classList.remove('muted'); photosList.innerHTML='';
+  photosLocal.forEach((p,idx)=>{
+    const card=document.createElement('div'); card.className='photo-card';
+    card.innerHTML=`
+      <img src="${p.dataUrl}" alt="Écart ${idx+1}">
+      <textarea placeholder="Commentaire de la photo...">${p.comment||''}</textarea>
+      <div class="row photo-actions">
+        <span class="muted">#${idx+1} • ${new Date(p.ts).toLocaleString()}</span>
+        <div class="row">
+          <button type="button" class="btn secondary small" data-act="replace" data-idx="${idx}">Remplacer</button>
+          <button type="button" class="btn secondary small" data-act="delete" data-idx="${idx}">Supprimer</button>
+        </div>
+      </div>`;
+    const ta=card.querySelector('textarea'); ta.addEventListener('input', ()=>{ photosLocal[idx].comment=ta.value; });
+    photosList.appendChild(card);
+  });
+}
+photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
+btnAddFromCam.addEventListener('click', ()=>{ photosInput.setAttribute('capture','environment'); photosInput.click(); });
+photosList.addEventListener('click', async (e)=>{
+  const btn=e.target.closest('button[data-act]'); if(!btn) return; const idx=parseInt(btn.dataset.idx,10); if(Number.isNaN(idx)) return;
+  if(btn.dataset.act==='delete'){ photosLocal.splice(idx,1); renderPhotos(); }
+  else if(btn.dataset.act==='replace'){
+    const tmp=document.createElement('input'); tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
+    tmp.addEventListener('change', async ()=>{ if(tmp.files && tmp.files[0]){ const dataUrl=await fileToDataURL(tmp.files[0]); photosLocal[idx].dataUrl=dataUrl; photosLocal[idx].ts=Date.now(); renderPhotos(); } });
+    tmp.click();
+  }
+});
 
 function openZoneForm(zone){
   currentZone=zone; gravite=false; $('#btnGravite').classList.remove('on');
   titleEl.textContent=`Fiche • ${zone}`;
   subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
   checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
-  $('#photoPreview').style.display='none'; $('#photoPreview').src=''; $('#photoInput').value=''; $('#photoComment').value='';
+  photosInput.value=''; photosLocal=[]; renderPhotos();
   const saved=reports[zone];
   if(saved){
     const idxByKey=saved.scores||{};
     checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
-    if(saved.photo){ $('#photoPreview').src=saved.photo; $('#photoPreview').style.display='block'; }
-    if(saved.comment){ $('#photoComment').value=saved.comment; }
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
+    // migration ancien schéma (photo/comment global)
+    if(saved.photo && (!saved.photos || !saved.photos.length)){
+      saved.photos=[{dataUrl:saved.photo, comment:saved.comment||'', ts:saved.savedAt||Date.now()}];
+    }
+    if(saved.photos && Array.isArray(saved.photos)) photosLocal=saved.photos.map(p=>({dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now()}));
+    renderPhotos();
   }
   updateTotalChip();
   modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); backdrop.style.display='block';
@@ -513,145 +560,129 @@ function closeZoneForm(){ modal.classList.remove('open'); modal.setAttribute('ar
 $('#btnCloseModal').addEventListener('click', closeZoneForm);
 backdrop.addEventListener('click', closeZoneForm);
 
-document.getElementById('btnGravite').addEventListener('click', ()=>{ gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
-document.addEventListener('change', e=>{
-  const cb=e.target;
-  if(cb.matches('.checks input[type="checkbox"]')){
-    const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')];
-    if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); }
-    updateTotalChip();
-  }
-});
+// Gravité + cases exclusives
+$('#btnGravite').addEventListener('click', ()=>{ gravite=!gravite; $('#btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
+document.addEventListener('change', e=>{ const cb=e.target; if(cb.matches('.checks input[type="checkbox"]')){ const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')]; if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); } updateTotalChip(); }});
 function fractionForIndex(idx){ return [1,0.75,0.5,0.25][idx] ?? 0; }
-function computeRawTotal(){ let total=0, detail={};
-  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; if(idx>=0) total+=max*fractionForIndex(idx); });
-  return {raw:total, detail};
+function computeRawTotalAndDetail(){ let total=0, detail={}; const perCrit={};
+  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; const score=(idx>=0? max*fractionForIndex(idx) : 0); total+=score; perCrit[key]=score; });
+  return {raw:total, detail, perCrit};
 }
 function adjustedScore(raw){ return gravite ? raw/5 : raw; }
-function updateTotalChip(){ const {raw}=computeRawTotal(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
-$('#photoInput').addEventListener('change', e=>{
-  const file=e.target.files && e.target.files[0]; if(!file){ $('#photoPreview').style.display='none'; $('#photoPreview').src=''; return; }
-  const reader=new FileReader(); reader.onload=()=>{ $('#photoPreview').src=reader.result; $('#photoPreview').style.display='block'; }; reader.readAsDataURL(file);
-});
+function updateTotalChip(){ const {raw}=computeRawTotalAndDetail(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
+
 $('#btnSaveZone').addEventListener('click', ()=>{
-  if(!currentZone) return;
-  const {raw,detail}=computeRawTotal(); const photo=$('#photoPreview').src||null; const comment=$('#photoComment').value.trim(); const totalAdj=Math.round(adjustedScore(raw));
-  reports[currentZone]={scores:detail, photo, comment, total:totalAdj, savedAt:Date.now(), gravite:!!gravite};
+  if(!currentZone) return; const {raw, detail}=computeRawTotalAndDetail(); const totalAdj=Math.round(adjustedScore(raw));
+  reports[currentZone]={ scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.slice(0) };
   localStorage.setItem(STORE_KEY, JSON.stringify(reports));
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
   closeZoneForm(); drawAll();
 });
-$('#btnClearZone').addEventListener('click', ()=>{ checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false)); $('#photoPreview').style.display='none'; $('#photoPreview').src=''; $('#photoInput').value=''; $('#photoComment').value=''; gravite=false; $('#btnGravite').classList.remove('on'); updateTotalChip(); });
+$('#btnClearZone').addEventListener('click', ()=>{ checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false)); gravite=false; $('#btnGravite').classList.remove('on'); photosInput.value=''; photosLocal=[]; renderPhotos(); updateTotalChip(); });
 
 /* ===== Stats/Graphiques ===== */
 const statsModal=$('#statsModal'), statsBackdrop=$('#statsBackdrop');
 $('#btnOpenStats').addEventListener('click', openStats);
 $('#btnCloseStats').addEventListener('click', closeStats);
 statsBackdrop.addEventListener('click', closeStats);
-
 function groupOf(zone){ for(const [g,arr] of Object.entries(GROUPS)){ if(arr.includes(zone)) return g; } return '—'; }
 function openStats(){ renderStats(); statsModal.classList.add('open'); statsModal.setAttribute('aria-hidden','false'); statsBackdrop.style.display='block'; }
 function closeStats(){ statsModal.classList.remove('open'); statsModal.setAttribute('aria-hidden','true'); statsBackdrop.style.display='none'; }
 function renderStats(){
   const bars=$('#barsContainer'); bars.innerHTML=''; const rows=$('#zoneRows'); rows.innerHTML='';
-  const perGroup={};
-  Object.entries(GROUPS).forEach(([g,zs])=>{
-    const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
-    const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0;
-    perGroup[g]={avg, count:done.length, totalZones:zs.length};
-  });
-  const allScores=Object.values(reports).map(r=>r.total);
-  const globalAvg=allScores.length?(allScores.reduce((a,b)=>a+b,0)/allScores.length):0;
-  $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • ${allScores.length} zone(s) notée(s)`;
-  Object.entries(perGroup).forEach(([g,info])=>{
-    const row=document.createElement('div'); row.className='barrow';
-    const label=document.createElement('div'); label.textContent=g;
-    const bar=document.createElement('div'); bar.className='bar';
-    const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill);
-    const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%';
-    row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
-    const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`;
-    bars.appendChild(row); bars.appendChild(meta);
-  });
-  const zonesAll=[].concat(...Object.values(GROUPS));
-  zonesAll.forEach(z=>{
-    const g=groupOf(z); const r=reports[z];
-    const div=document.createElement('div'); div.className='row';
-    const c1=document.createElement('div'); c1.textContent=z;
-    const c2=document.createElement('div'); c2.textContent=g;
-    const c3=document.createElement('div'); c3.textContent=r?.comment||'';
-    const c4=document.createElement('div'); c4.style.textAlign='right'; c4.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—');
-    div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4);
-    rows.appendChild(div);
-  });
+  const perGroup={}; Object.entries(GROUPS).forEach(([g,zs])=>{ const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null); const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0; perGroup[g]={avg,count:done.length,totalZones:zs.length}; });
+  const allScores=Object.values(reports).map(r=>r.total); const globalAvg=allScores.length?(allScores.reduce((a,b)=>a+b,0)/allScores.length):0; const globalSum=allScores.reduce((a,b)=>a+b,0);
+  $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • Total ${globalSum} pts • ${allScores.length} zone(s)`;
+  Object.entries(perGroup).forEach(([g,info])=>{ const row=document.createElement('div'); row.className='barrow'; const label=document.createElement('div'); label.textContent=g; const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill); const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%'; row.appendChild(label); row.appendChild(bar); row.appendChild(pct); const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`; bars.appendChild(row); bars.appendChild(meta); });
+  const zonesAll=[].concat(...Object.values(GROUPS)); zonesAll.forEach(z=>{ const g=groupOf(z); const r=reports[z]; const div=document.createElement('div'); div.className='row'; const c1=document.createElement('div'); c1.textContent=z; const c2=document.createElement('div'); c2.textContent=g; const c3=document.createElement('div'); c3.textContent=(r && r.photos)? r.photos.length : 0; const c4=document.createElement('div'); c4.style.textAlign='right'; c4.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—'); div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4); rows.appendChild(div); });
 }
 
 /* ===== Réinitialiser toute la tournée ===== */
 document.getElementById('btnResetAll').addEventListener('click', ()=>{
-  const confirmMsg = 'Confirmer la réinitialisation ?\\nToutes les fiches enregistrées seront supprimées.';
-  if(!confirm(confirmMsg)) return;
-  localStorage.removeItem(STORE_KEY);
-  reports = {};
-  toast('Tournée réinitialisée.');
-  drawAll();
-  // mettre à jour les stats si la fenêtre est ouverte
-  if(!statsModal.hasAttribute('aria-hidden') || statsModal.classList.contains('open')) renderStats();
+  if(!confirm('Confirmer la réinitialisation complète de la tournée ?')) return;
+  reports={}; localStorage.removeItem(STORE_KEY); toast('Tournée réinitialisée.'); drawAll(); if(statsModal.classList.contains('open')) renderStats();
 });
 
-/* ===== Export XLS ===== */
-document.getElementById('btnExportXls').addEventListener('click', ()=>{
-  const rows = buildExportRows(); // {Zone,Groupe,Propreté,Affiches,Accessibilité,Tri,Bennes,Départ,Gravité,Total,Commentaire,Date}
-  if(rows.length===0){ toast('Aucune fiche à exporter.'); return; }
-  const html = makeExcelHtml(rows);
-  const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'});
-  const a = document.createElement('a');
-  const now = new Date();
-  const pad = n=>String(n).padStart(2,'0');
-  const fileName = `tournee_dechets_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xls`;
-  a.href = URL.createObjectURL(blob);
-  a.download = fileName;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(a.href);
-  toast('Export XLS généré.');
-});
+/* ===== Export XLS (avec miniatures photos + totaux) ===== */
+document.getElementById('btnExportXls').addEventListener('click', exportXls);
 
-function buildExportRows(){
+function idxToPct(idx){ return (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0); }
+function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx)) : 0; }
+
+function buildExport(){
   const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
-  const idxToPct = idx => (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0);
   const zonesAll=[].concat(...Object.values(GROUPS));
-  const rows=[];
+  const rows=[]; // par zone
+  const photosRows=[]; // feuille photos
   zonesAll.forEach(z=>{
-    const r=reports[z]; if(!r) return; // uniquement la tournée en cours (zones notées)
-    const s=r.scores||{};
-    const scoreVal = k => Math.round((s[k]>=0?criteriaMax[k]*idxToPct(s[k]):0));
-    const row = {
+    const r=reports[z]; if(!r) return; const s=r.scores||{};
+    const row={
       Zone:z,
       Groupe:groupOf(z),
-      Propreté:scoreVal('proprete'),
-      Affiches:scoreVal('affiches'),
-      Accessibilité:scoreVal('accessibilite'),
-      Tri:scoreVal('tri'),
-      Bennes:scoreVal('bennes'),
-      Départ:scoreVal('depart'),
+      Propreté:scoreFromIdx(criteriaMax.proprete, s.proprete ?? -1),
+      Affiches:scoreFromIdx(criteriaMax.affiches, s.affiches ?? -1),
+      Accessibilité:scoreFromIdx(criteriaMax.accessibilite, s.accessibilite ?? -1),
+      Tri:scoreFromIdx(criteriaMax.tri, s.tri ?? -1),
+      Bennes:scoreFromIdx(criteriaMax.bennes, s.bennes ?? -1),
+      Départ:scoreFromIdx(criteriaMax.depart, s.depart ?? -1),
       Gravité:r.gravite?'Oui':'Non',
       Total:r.total,
-      Commentaire:(r.comment||'').replace(/\s+/g,' ').trim(),
-      Date: new Date(r.savedAt||Date.now()).toLocaleString()
+      NbPhotos:(r.photos && Array.isArray(r.photos)) ? r.photos.length : 0,
+      Date: r.savedAt ? new Date(r.savedAt).toLocaleString() : ''
     };
     rows.push(row);
+    (r.photos||[]).forEach((p,i)=>{ photosRows.push({ Zone:z, Groupe:groupOf(z), Index:i+1, Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(), Commentaire:p.comment||'', DataUrl:p.dataUrl }); });
   });
-  return rows;
+  return {rows, photosRows};
 }
 
-/* Génère un fichier .xls (HTML compatible Excel) */
-function makeExcelHtml(rows){
-  const headers = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Commentaire','Date'];
+function exportXls(){
+  const {rows, photosRows} = buildExport();
+  if(!rows.length){ toast('Aucune fiche à exporter.'); return; }
+
+  // Totaux & moyennes
+  const totalAll = rows.reduce((a,b)=>a+(b.Total||0),0);
+  const avgAll   = Math.round(totalAll / rows.length);
+
+  const perGroup = {};
+  rows.forEach(r=>{ perGroup[r.Groupe] ??= {sum:0,count:0}; perGroup[r.Groupe].sum+= (r.Total||0); perGroup[r.Groupe].count++; });
+
+  // Table principale
+  const headers1 = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Nb photos','Date'];
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let table = '<table border="1"><thead><tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
-  table += rows.map(r=>'<tr>'+headers.map(h=>`<td>${esc(r[h]??'')}</td>`).join('')+'</tr>').join('');
-  table += '</tbody></table>';
-  // entête minimal pour Excel
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${table}</body></html>`;
+  let html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>';
+  html += '<h2>Résumé de tournée</h2>';
+  html += `<p><b>Total toutes les zones notées :</b> ${totalAll} points — <b>Moyenne globale :</b> ${avgAll}% — <b>Zones notées :</b> ${rows.length}</p>`;
+
+  html += '<table border="1"><thead><tr>'+headers1.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
+  rows.forEach(r=>{ html += '<tr>'+headers1.map(h=>`<td>${esc(r[h]??'')}</td>`).join('')+'</tr>'; });
+  html += '</tbody></table>';
+
+  // Moyennes par groupe
+  html += '<br/><h3>Moyennes par groupe</h3>';
+  html += '<table border="1"><thead><tr><th>Groupe</th><th>Zones notées</th><th>Moyenne</th><th>Somme</th></tr></thead><tbody>';
+  Object.entries(perGroup).forEach(([g,st])=>{ const avg = st.count? Math.round(st.sum/st.count) : 0; html += `<tr><td>${esc(g)}</td><td>${st.count}</td><td>${avg}%</td><td>${st.sum}</td></tr>`; });
+  html += '</tbody></table>';
+
+  // Feuille photos (même fichier, section séparée). Excel affichera les IMG data: si compatible.
+  if(photosRows.length){
+    html += '<br/><h3>Écarts (photos)</h3>';
+    html += '<table border="1"><thead><tr><th>Zone</th><th>Groupe</th><th>#</th><th>Date</th><th>Commentaire</th><th>Image</th></tr></thead><tbody>';
+    photosRows.forEach(p=>{
+      // miniatures pour éviter des fichiers trop lourds (Excel affichera l'image). Si Excel ne supporte pas data:URL, prévoir export ZIP ultérieur.
+      html += `<tr><td>${esc(p.Zone)}</td><td>${esc(p.Groupe)}</td><td>${p.Index}</td><td>${esc(p.Date)}</td><td>${esc(p.Commentaire)}</td><td><img src="${p.DataUrl}" alt="photo" width="220"></td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '</body></html>';
+
+  const blob = new Blob([html], {type:'application/vnd.ms-excel'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href = url; a.download = `tournee-dechets_${dateStr}.xls`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Export XLS généré.');
 }
 
 /* ===== Init ===== */
