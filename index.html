@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>TICP • Localisation Déchets (Full Screen + GPS Fix)</title>
+<title>TICP • Localisation Déchets (GPS FIX)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,6 @@
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
 
-  /* Barre du haut */
   .app{display:grid;grid-template-rows:auto 1fr;height:100%}
   header.appbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.78));border-bottom:1px solid var(--line);backdrop-filter:saturate(1.2) blur(6px)}
   .bar{max-width:1600px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -27,13 +26,10 @@
   .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
   .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
 
-  /* Layout principal */
-  .layout{display:block}
-
-  /* Panneau : par défaut (mobile) visible en haut, au-dessus de la carte */
+  /* Panneau au-dessus (mobile), tiroir (desktop) */
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 0 16px 16px;box-shadow:0 10px 30px rgba(2,8,23,.06);margin:0 0 12px 0}
-  .panel > header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
-  .panel > .content{padding:12px 14px}
+  .panel>header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .panel>.content{padding:12px 14px}
   .grid{display:grid;gap:12px}
   .two{grid-template-columns:1fr 1fr}
   .field{display:grid;gap:6px}
@@ -41,9 +37,8 @@
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   select,.choices__inner{width:100%}
 
-  /* Carte plein écran sous la barre (desktop) ou 70vh (mobile) */
+  /* Carte : image positionnée par left/top, mise à l’échelle via width/height (AUCUNE transform CSS) */
   .mapwrap{position:relative;width:100%;background:#0b1020}
-  .stage{position:absolute;inset:0;transform-origin:top left}
   .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
   canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
 
@@ -56,21 +51,21 @@
   .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* ----- Desktop : carte plein écran, panneau en tiroir latéral ----- */
+  /* Desktop : carte plein écran, panneau tiroir */
   @media (min-width:1025px){
-    .mapwrap{height:calc(100vh - 64px); border-radius:0}
+    .mapwrap{height:calc(100vh - 64px)}
     .panel{
       position:fixed; inset:64px 0 0 auto;
-      width:380px; max-width:92vw;
+      width:380px; max-width:92vw; border-radius:0;
       transform:translateX(100%); transition:transform .25s ease;
-      border-radius:0; border-left:1px solid var(--line); border-right:none; margin:0;
+      border-left:1px solid var(--line); border-right:none; margin:0;
       z-index:40; box-shadow:-20px 0 50px rgba(2,8,23,.15);
     }
     .panel.open{ transform:translateX(0) }
     .panel .close{ display:inline-flex }
   }
 
-  /* ----- Mobile/Tablet : panneau en haut + carte 70vh ----- */
+  /* Mobile/Tablet : panneau en haut + carte 70vh */
   @media (max-width:1024px){
     .mapwrap{height:70vh;min-height:520px;border-radius:16px}
     .panel .close{ display:none }
@@ -79,7 +74,6 @@
 </head>
 <body>
 <div class="app">
-  <!-- Barre du haut -->
   <header class="appbar">
     <div class="bar">
       <div class="brand"><div class="logo"></div>TICP • Localisation des déchets</div>
@@ -91,8 +85,8 @@
     </div>
   </header>
 
-  <main class="layout">
-    <!-- IMPORTANT : Panneau placé AVANT la carte pour qu’il soit en haut sur mobile -->
+  <main>
+    <!-- Panneau AU-DESSUS (mobile), tiroir (desktop) -->
     <section class="panel" id="panel">
       <header>
         Navigation & Recherche
@@ -130,33 +124,26 @@
           <label>Déchets dans la zone</label>
           <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0"><li>Aucune zone sélectionnée</li></ul>
         </div>
-
-        <p style="color:#6b7280;margin:6px 0 0 0">
-          • Image ajustée <b>en entier</b> au chargement (Ajuster pour y revenir).<br>
-          • Molette = zoom, glisser = déplacer. Aucun itinéraire automatique.
-        </p>
       </div>
     </section>
 
     <!-- Carte -->
     <section class="mapwrap" id="mapContainer">
-      <div class="stage" id="stage">
-        <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
-        <canvas id="overlay"></canvas>
+      <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+      <canvas id="overlay"></canvas>
 
-        <div class="toolbox">
-          <button class="btn secondary small" id="zMinus">–</button>
-          <button class="btn secondary small" id="zReset">100%</button>
-          <button class="btn secondary small" id="zPlus">+</button>
-          <button class="btn secondary small" id="btnFit">Ajuster</button>
-        </div>
+      <div class="toolbox">
+        <button class="btn secondary small" id="zMinus">–</button>
+        <button class="btn secondary small" id="zReset">100%</button>
+        <button class="btn secondary small" id="zPlus">+</button>
+        <button class="btn secondary small" id="btnFit">Ajuster</button>
+      </div>
 
-        <div class="hud">
-          <div class="card">
-            <div class="kpi">Position <strong id="kpiPos">—</strong></div>
-            <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
-            <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
-          </div>
+      <div class="hud">
+        <div class="card">
+          <div class="kpi">Position <strong id="kpiPos">—</strong></div>
+          <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
+          <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
         </div>
       </div>
     </section>
@@ -169,16 +156,16 @@
 <script>
 "use strict";
 
-/* ====== Helpers ====== */
+/* ===== Helpers ===== */
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 
-/* ====== Panneau (desktop = tiroir) ====== */
+/* ===== Panneau (desktop tiroir) ===== */
 const panel = $('#panel');
 $('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
 $('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
-/* ====== Données ====== */
+/* ===== Données ===== */
 const coords = {
   "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
   "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
@@ -206,7 +193,7 @@ const coords = {
   "Bureau Administratif":{x:1524,y:152}
 };
 
-const dechetsParZone = {
+const dechetsParZone = { /* … mêmes données déchets que tes versions précédentes … */ 
   Z1:["Bois","Carton","Bac noir","Plastique"],
   Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
   Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
@@ -240,7 +227,7 @@ const dechetsParZone = {
   Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
 };
 
-/* ====== UI : selects & liste ====== */
+/* ===== UI : selects & liste ===== */
 let choicesZone, choicesDechet;
 function initChoices(){
   choicesZone   = new Choices($('#zoneSelect'),   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
@@ -265,14 +252,13 @@ function updateInfoPanel(zone){
   if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
 }
 
-/* ====== Carte : fit contain + zoom/pan ====== */
+/* ===== Carte : fit contain + zoom/pan (sans transform CSS !) ===== */
 const mapContainer=$('#mapContainer');
-const stage=$('#stage');
 const mapImg=$('#mapImage');
 const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
 
-let base={s:1,ox:0,oy:0,iw:1,ih:1};
-let view={z:1, panX:0, panY:0};
+let base={s:1,ox:0,oy:0,iw:1,ih:1};   // image naturelle + fit
+let view={z:1, panX:0, panY:0};       // zoom/pan composés
 let dragging=false, lx=0, ly=0;
 
 function computeFit(){
@@ -282,58 +268,80 @@ function computeFit(){
   const s=Math.min(r.width/base.iw, r.height/base.ih); // ENTIEREMENT visible
   base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
 }
-function applyTransform(){
-  stage.style.transform=`translate(${base.ox+view.panX}px,${base.oy+view.panY}px) scale(${base.s*view.z})`;
-  stage.style.transformOrigin='top left';
-  mapImg.style.width=base.iw+'px'; mapImg.style.height=base.ih+'px';
+
+function applyLayout(){
+  // Image positionnée par left/top, mise à l’échelle en px
+  const w = base.iw*base.s*view.z;
+  const h = base.ih*base.s*view.z;
+  mapImg.style.width  = w+'px';
+  mapImg.style.height = h+'px';
+  mapImg.style.left   = (base.ox+view.panX)+'px';
+  mapImg.style.top    = (base.oy+view.panY)+'px';
+
   $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
 }
-function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); }
+
+function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
 
 new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
 mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
 if (mapImg.complete) setTimeout(fitAndCenter,0);
 
-function imgToScreen(pt){ return { x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z) }; }
-function screenToImg(x,y){ return { x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z) }; }
+// Conversions image <-> écran
+function imgToScreen(pt){ // image px -> écran px
+  return {
+    x: (base.ox+view.panX) + pt.x*(base.s*view.z),
+    y: (base.oy+view.panY) + pt.y*(base.s*view.z)
+  };
+}
+function screenToImg(x,y){ // écran px -> image px
+  return {
+    x: (x - base.ox - view.panX) / (base.s*view.z),
+    y: (y - base.oy - view.panY) / (base.s*view.z)
+  };
+}
 
+// Zoom centré
 function setZoom(z,cx,cy){
   const MIN=0.1, MAX=4;
   z=Math.max(MIN,Math.min(MAX,z));
   if(typeof cx==='number' && typeof cy==='number'){
     const before=screenToImg(cx,cy);
-    view.z=z; applyTransform();
+    view.z=z; applyLayout();
     const after=imgToScreen(before);
-    view.panX += (cx - after.x); view.panY += (cy - after.y);
+    view.panX += (cx - after.x);
+    view.panY += (cy - after.y);
   } else { view.z=z; }
-  applyTransform(); drawAll();
+  applyLayout(); drawAll();
 }
 $('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
 $('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
-$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); };
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
 $('#btnFit').onclick = ()=> fitAndCenter();
 
-mapContainer.addEventListener('wheel', e=>{
-  e.preventDefault();
-  const rect=mapContainer.getBoundingClientRect();
-  setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top);
-},{passive:false});
-
+// Pan
 mapContainer.addEventListener('pointerdown', e=>{
   dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId);
 });
 mapContainer.addEventListener('pointermove', e=>{
   if(!dragging) return;
   view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY;
-  applyTransform(); drawAll();
+  applyLayout(); drawAll();
 });
 mapContainer.addEventListener('pointerup', ()=> dragging=false);
 mapContainer.addEventListener('pointercancel', ()=> dragging=false);
 
-/* ====== Dessin ====== */
-let route=null;        // {from:{x,y}, to:{x,y}}
-let hotspots=[];       // [{x,y,r,zone}]
-let userPos=null;      // {x,y}
+// Zoom molette
+mapContainer.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const rect=mapContainer.getBoundingClientRect();
+  setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top);
+},{passive:false});
+
+/* ===== Dessin ===== */
+let route=null;        // {from:{x,y}, to:{x,y}} en px image
+let hotspots=[];       // [{x,y,r,zone}] en px image
+let userPos=null;      // {x,y} en px image
 let headingDegRaw=null, headingSource='unknown';
 let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
 
@@ -360,7 +368,7 @@ function drawAll(){
     ctx.strokeStyle='#065f46'; ctx.stroke();
     const angRad = normalizedHeadingRad();
     if(angRad!=null){
-      const ang=angRad - Math.PI/2; // même rendu que ton code d’origine
+      const ang=angRad - Math.PI/2;
       const len=80;
       ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
@@ -373,7 +381,7 @@ function drawAll(){
 }
 (function loop(){ requestAnimationFrame(loop); drawAll(); })();
 
-/* ====== Tracer / Effacer / Pick ====== */
+/* ===== Tracer / Effacer / Pick ===== */
 $('#btnOK').addEventListener('click', ()=>{
   const dep=$('#zoneSelect').value;
   const waste=$('#dechetSelect').value.toLowerCase().trim();
@@ -418,8 +426,8 @@ mapContainer.addEventListener('click', e=>{
   }
 });
 
-/* ====== GPS + Boussole ====== */
-/* ➜ Projection GPS EXACTEMENT comme la version d’origine (barycentrique 3 points) */
+/* ===== GPS + Boussole ===== */
+/* Projection GPS = EXACTEMENT celle d’origine (barycentrique 3 points) */
 const calibration = [
   {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12
   {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5
@@ -428,11 +436,9 @@ const calibration = [
 
 function gpsToPixel(lat, lon) {
   const [P0, P1, P2] = calibration;
-  const lat0 = P0.lat;
-  const lon0 = P0.lon;
+  const lat0 = P0.lat, lon0 = P0.lon;
   const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
-  const kx = 111320 * Math.cos(avgLat);
-  const ky = 111320;
+  const kx = 111320 * Math.cos(avgLat), ky = 111320;
 
   function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
     const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
@@ -444,20 +450,13 @@ function gpsToPixel(lat, lon) {
 
   const px = (lon - lon0) * kx;
   const py = (lat - lat0) * ky;
-  const x0 = 0;
-  const y0 = 0;
-  const x1 = (P1.lon - lon0) * kx;
-  const y1 = (P1.lat - lat0) * ky;
-  const x2 = (P2.lon - lon0) * kx;
-  const y2 = (P2.lat - lat0) * ky;
-
-  const [u, v, w] = barycentric(px, py, x0, y0, x1, y1, x2, y2);
-  const xp = u*P0.x + v*P1.x + w*P2.x;
-  const yp = u*P0.y + v*P1.y + w*P2.y;
-  return {x: xp, y: yp};
+  const x1 = (P1.lon - lon0) * kx, y1 = (P1.lat - lat0) * ky;
+  const x2 = (P2.lon - lon0) * kx, y2 = (P2.lat - lat0) * ky;
+  const [u, v, w] = barycentric(px, py, 0, 0, x1, y1, x2, y2);
+  return { x: u*P0.x + v*P1.x + w*P2.x, y: u*P0.y + v*P1.y + w*P2.y };
 }
 
-/* Boussole normalisée + calibration optionnelle (inchangée) */
+/* Boussole normalisée + calibration optionnelle */
 function screenOrientationAngle(){
   const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
   return ((a%360)+360)%360;
@@ -519,14 +518,13 @@ $('#btnGPS').addEventListener('click', ()=>{
     sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
   }
 
-  // Sur mobile, le panneau est déjà en haut (visible). Sur desktop, on peut ouvrir le tiroir si besoin :
+  // Ouvre le tiroir sur desktop
   if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
 });
 
-/* ====== Init ====== */
-let choicesReady=false;
+/* ===== Init ===== */
 function init(){
-  initChoices(); choicesReady=true;
+  initChoices();
   fitAndCenter(); // image entière visible immédiatement
 }
 document.addEventListener('DOMContentLoaded', init);
