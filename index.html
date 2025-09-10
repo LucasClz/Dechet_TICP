@@ -1,387 +1,401 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tournée déchets – saisie par zone</title>
-  <style>
-    :root{
-      --bg:#0b1220; --panel:#121a2b; --muted:#8aa0c5; --accent:#4ade80; --danger:#ef4444; --border:#22304d; --text:#e6eefc;
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TICP • Localisation & Notation Déchets</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb;--ok:#16a34a;--ok-200:#dcfce7}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+
+  .app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  header.appbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.78));border-bottom:1px solid var(--line);backdrop-filter:saturate(1.2) blur(6px)}
+  .bar{max-width:1600px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+  .logo{width:10px;height:28px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 6px rgba(230,0,126,.08)}
+  .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#eef2ff;color:#3730a3}
+  .btn{appearance:none;border:none;border-radius:10px;cursor:pointer;padding:10px 14px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 8px 22px rgba(230,0,126,.22);transition:.2s}
+  .btn:hover{background:var(--brand-700);transform:translateY(-1px)}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
+  .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
+
+  /* Panneau au-dessus (mobile), tiroir (desktop) */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 0 16px 16px;box-shadow:0 10px 30px rgba(2,8,23,.06);margin:0 0 12px 0}
+  .panel>header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .panel>.content{padding:12px 14px}
+  .grid{display:grid;gap:12px}
+  .two{grid-template-columns:1fr 1fr}
+  .field{display:grid;gap:6px}
+  .field label{font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  select,.choices__inner{width:100%}
+
+  /* Carte : image positionnée par left/top, mise à l’échelle via width/height (AUCUNE transform CSS) */
+  .mapwrap{position:relative;width:100%;background:#0b1020}
+  .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
+  canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
+
+  .toolbox{position:absolute;left:12px;top:12px;z-index:5;display:flex;gap:8px;flex-wrap:wrap}
+  .hud{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
+  .card{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:170px;color:#111827}
+  .kpi{font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:center}
+  .kpi strong{font-size:13px;color:#111827}
+
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
+  .toast.show{opacity:1}
+
+  /* Desktop : carte plein écran, panneau tiroir */
+  @media (min-width:1025px){
+    .mapwrap{height:calc(100vh - 64px)}
+    .panel{
+      position:fixed; inset:64px 0 0 auto;
+      width:420px; max-width:92vw; border-radius:0;
+      transform:translateX(100%); transition:transform .25s ease;
+      border-left:1px solid var(--line); border-right:none; margin:0;
+      z-index:40; box-shadow:-20px 0 50px rgba(2,8,23,.15);
     }
-    html,body{height:100%;}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); display:grid; grid-template-columns: 340px 1fr; gap:16px;}
-    header{grid-column:1/-1; padding:14px 18px; border-bottom:1px solid var(--border); background:#0f1730; position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px}
-    header h1{font-size:18px; margin:0; letter-spacing:.3px}
-    header .actions{margin-left:auto; display:flex; gap:8px}
-    button, .btn{background:#1b2845; color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:12px; cursor:pointer}
-    button:hover{filter:brightness(1.08)}
-    .wrap{padding:12px;}
-    .sidebar{background:var(--panel); border-right:1px solid var(--border); padding:14px; display:flex; flex-direction:column; gap:12px}
-    .sidebar h2{font-size:14px; margin:2px 0 4px; color:var(--muted)}
-    .zones{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px}
-    .zone-chip{display:flex; align-items:center; justify-content:space-between; gap:6px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#0f1730}
-    .zone-chip .label{font-weight:600}
-    .zone-chip .score{font-size:12px; color:var(--muted)}
-    .zone-chip.filled{background:rgba(74,222,128,.12); border-color:#204b2f}
+    .panel.open{ transform:translateX(0) }
+    .panel .close{ display:inline-flex }
+  }
 
-    /* Carte */
-    .map{padding:12px;}
-    svg{width:100%; height:calc(100vh - 120px); background:#0a1120; border-top:1px solid var(--border)}
-    .zone{fill:#1b2845; stroke:#2b3f6b; stroke-width:2; cursor:pointer; transition:all .2s ease}
-    .zone:hover{fill:#243863}
-    .zone.filled{fill:#1d4131; stroke:#28a745}
-    .zone text{pointer-events:none}
+  /* Mobile/Tablet : panneau en haut + carte 70vh */
+  @media (max-width:1024px){
+    .mapwrap{height:70vh;min-height:520px;border-radius:16px}
+    .panel .close{ display:none }
+  }
 
-    /* Modal */
-    dialog{border:none; border-radius:16px; background:#0f1730; color:var(--text); padding:0; width:min(780px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.45)}
-    dialog::backdrop{background:rgba(0,0,0,.6)}
-    .modal-hd{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border)}
-    .modal-hd h3{margin:0; font-size:16px}
-    .modal-bd{padding:16px; display:grid; gap:16px}
-    .grid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px}
-    .card{border:1px solid var(--border); border-radius:14px; padding:12px; background:#0b1429}
-    .card h4{margin:0 0 8px; font-size:13px; color:var(--muted)}
-    .checks{display:grid; grid-template-columns: repeat(4, 1fr); gap:8px}
-    .checks label{display:flex; align-items:center; gap:6px; border:1px dashed #304268; padding:8px; border-radius:10px; user-select:none}
-    .checks input{width:16px; height:16px}
-
-    .media{display:grid; gap:10px}
-    .media .preview{display:grid; place-items:center; border:1px dashed #304268; border-radius:12px; min-height:120px; overflow:hidden}
-    .media img{max-width:100%; max-height:260px; display:block}
-    .media textarea{min-height:80px; resize:vertical; width:100%; background:#0b1429; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px}
-
-    .modal-ft{display:flex; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--border)}
-    .muted{color:var(--muted); font-size:12px}
-    .total{font-weight:700}
-  </style>
+  /* Modal notation */
+  dialog{border:none;border-radius:14px;max-width:min(820px,96vw);width:100%;padding:0;box-shadow:0 30px 80px rgba(2,6,23,.4)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  .mod{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .mod-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700}
+  .mod-bd{padding:14px;display:grid;gap:12px}
+  .mod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cardX{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+  .cardX h4{margin:0 0 8px;font-size:13px;color:#374151}
+  .checks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .checks label{display:flex;gap:6px;align-items:center;border:1px dashed #cbd5e1;border-radius:10px;padding:8px}
+  .checks input{width:16px;height:16px}
+  .muted{color:var(--muted);font-size:12px}
+  .preview{display:grid;place-items:center;min-height:120px;border:1px dashed #cbd5e1;border-radius:10px;overflow:hidden}
+  .preview img{max-width:100%;max-height:260px;display:block}
+  textarea{min-height:84px;width:100%;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:10px}
+  .mod-ft{display:flex;justify-content:space-between;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:#fafafa}
+  .pill-ok{display:inline-flex;align-items:center;gap:6px;background:var(--ok-200);color:#065f46;border:1px solid #86efac;padding:4px 8px;border-radius:999px;font-size:12px}
+</style>
 </head>
 <body>
-  <header>
-    <h1>🧹 Tournée déchets – saisie par zone</h1>
-    <div class="actions">
-      <button id="exportJson">Exporter JSON</button>
-      <button id="exportCsv">Exporter CSV</button>
-      <button id="resetAll" title="Efface toutes les saisies">Réinitialiser</button>
+<div class="app">
+  <header class="appbar">
+    <div class="bar">
+      <div class="brand"><div class="logo"></div>TICP • Localisation & Notation des déchets</div>
+      <div class="row">
+        <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
+        <button class="btn secondary small" id="btnExportCsv">Export CSV</button>
+        <button class="btn secondary small" id="btnExportJson">Export JSON</button>
+        <button class="btn secondary small" id="btnResetAll">Réinitialiser</button>
+        <span class="chip" id="chipGps">GPS: off</span>
+        <span class="chip" id="chipCompass">Boussole: off</span>
+      </div>
     </div>
   </header>
 
-  <aside class="sidebar wrap">
-    <h2>Zones</h2>
-    <div id="zoneList" class="zones"></div>
-  </aside>
+  <main>
+    <!-- Panneau AU-DESSUS (mobile), tiroir (desktop) -->
+    <section class="panel" id="panel">
+      <header>
+        Navigation & Recherche
+        <button class="btn secondary small close" id="btnClosePanel" style="display:none">Fermer</button>
+      </header>
+      <div class="content grid">
+        <div class="field">
+          <label>Origine</label>
+          <div class="row">
+            <button class="btn small" id="btnGPS">Activer GPS + Boussole</button>
+            <button class="btn secondary small" id="btnPick">Choisir sur le plan</button>
+            <button class="btn secondary small" id="btnCalibrate">Calibrer boussole</button>
+            <button class="btn secondary small" id="btnNudgeMinus">-5°</button>
+            <button class="btn secondary small" id="btnNudgePlus">+5°</button>
+          </div>
+        </div>
 
-  <main class="map wrap">
-    <!-- EXEMPLE de carte (remplacez par votre plan SVG si vous en avez un).
-         Chaque zone doit avoir class="zone" et un id comme Z1, Z5, etc.  -->
-    <svg viewBox="0 0 800 520" aria-label="Plan des zones">
-      <g id="zones-group" font-family="ui-sans-serif, system-ui" font-weight="700" font-size="18" fill="#e6eefc">
-        <g id="Z1" class="zone" tabindex="0">
-          <rect x="40" y="40" width="160" height="120" rx="8"></rect>
-          <text x="120" y="105" text-anchor="middle">Z1</text>
-        </g>
-        <g id="Z2" class="zone" tabindex="0">
-          <rect x="240" y="40" width="200" height="120" rx="8"></rect>
-          <text x="340" y="105" text-anchor="middle">Z2</text>
-        </g>
-        <g id="Z3" class="zone" tabindex="0">
-          <rect x="480" y="40" width="260" height="120" rx="8"></rect>
-          <text x="610" y="105" text-anchor="middle">Z3</text>
-        </g>
-        <g id="Z4" class="zone" tabindex="0">
-          <rect x="40" y="200" width="260" height="140" rx="8"></rect>
-          <text x="170" y="275" text-anchor="middle">Z4</text>
-        </g>
-        <g id="Z5" class="zone" tabindex="0">
-          <rect x="340" y="200" width="180" height="140" rx="8"></rect>
-          <text x="430" y="275" text-anchor="middle">Z5</text>
-        </g>
-        <g id="Z6" class="zone" tabindex="0">
-          <rect x="560" y="200" width="180" height="140" rx="8"></rect>
-          <text x="650" y="275" text-anchor="middle">Z6</text>
-        </g>
-        <g id="Z7" class="zone" tabindex="0">
-          <rect x="40" y="370" width="320" height="120" rx="8"></rect>
-          <text x="200" y="435" text-anchor="middle">Z7</text>
-        </g>
-        <g id="Z8" class="zone" tabindex="0">
-          <rect x="380" y="370" width="360" height="120" rx="8"></rect>
-          <text x="560" y="435" text-anchor="middle">Z8</text>
-        </g>
-      </g>
-    </svg>
-  </main>
+        <div class="grid two">
+          <div class="field">
+            <label for="zoneSelect">Emplacement</label>
+            <select id="zoneSelect" placeholder="Rechercher un emplacement"></select>
+          </div>
+          <div class="field">
+            <label for="dechetSelect">Déchet</label>
+            <select id="dechetSelect" placeholder="Rechercher un déchet"></select>
+          </div>
+        </div>
 
-  <dialog id="modal">
-    <form method="dialog" id="zoneForm">
-      <div class="modal-hd">
-        <h3 id="modalTitle">Zone</h3>
-        <button id="closeModal" class="btn" value="close">Fermer</button>
+        <div class="row">
+          <button class="btn" id="btnOK">Tracer</button>
+          <button class="btn secondary" id="btnClear">Effacer</button>
+        </div>
+
+        <div class="field">
+          <label>Déchets dans la zone</label>
+          <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0"><li>Aucune zone sélectionnée</li></ul>
+        </div>
+        <div class="field">
+          <span class="muted">Astuce : cliquez un point vert/rouge sur la carte (proche d'une Z*) pour ouvrir la fiche de notation.</span>
+        </div>
       </div>
-      <div class="modal-bd">
-        <div class="grid">
-          <!-- Six catégories, chacune en 4 cases à cocher -->
-          <div class="card">
-            <h4>Propreté de la zone (sur 10)</h4>
-            <div class="checks" data-weight="10" data-key="proprete"></div>
-          </div>
-          <div class="card">
-            <h4>Présence & état des affiches (sur 10)</h4>
-            <div class="checks" data-weight="10" data-key="affiches"></div>
-          </div>
-          <div class="card">
-            <h4>Accessibilité des contenants (sur 10)</h4>
-            <div class="checks" data-weight="10" data-key="accessibilite"></div>
-          </div>
-          <div class="card">
-            <h4>Respect du tri (sur 25)</h4>
-            <div class="checks" data-weight="25" data-key="tri"></div>
-          </div>
-          <div class="card">
-            <h4>État des bennes (sur 20)</h4>
-            <div class="checks" data-weight="20" data-key="bennes"></div>
-          </div>
-          <div class="card">
-            <h4>Départ des contenants (sur 10)</h4>
-            <div class="checks" data-weight="10" data-key="depart"></div>
-          </div>
-        </div>
+    </section>
 
-        <div class="card media">
-          <h4>Photo & commentaire</h4>
-          <div class="preview" id="photoPreview"><span class="muted">Aucune image</span></div>
-          <input type="file" id="photoInput" accept="image/*" />
-          <textarea id="photoComment" placeholder="Commentaire sur la photo (ex: emplacement, anomalie, n° benne...)"></textarea>
-        </div>
+    <!-- Carte -->
+    <section class="mapwrap" id="mapContainer">
+      <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+      <canvas id="overlay"></canvas>
 
+      <div class="toolbox">
+        <button class="btn secondary small" id="zMinus">–</button>
+        <button class="btn secondary small" id="zReset">100%</button>
+        <button class="btn secondary small" id="zPlus">+</button>
+        <button class="btn secondary small" id="btnFit">Ajuster</button>
+      </div>
+
+      <div class="hud">
         <div class="card">
-          <h4>Récapitulatif</h4>
-          <div class="muted">Cochez 0–4 cases par catégorie. Chaque case vaut un quart du total de la catégorie.</div>
-          <p><strong>Score zone :</strong> <span id="zoneScore">0</span> / <span id="zoneMax">85</span></p>
+          <div class="kpi">Position <strong id="kpiPos">—</strong></div>
+          <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
+          <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
+          <div class="kpi">Zone <strong id="kpiZone">—</strong></div>
         </div>
       </div>
-      <div class="modal-ft">
-        <span class="muted">Les données sont stockées en local (navigateur).</span>
-        <div>
-          <button class="btn" id="deleteZone" type="button" style="margin-right:6px; background:#2a1b1b; border-color:#512e2e">Supprimer les données de la zone</button>
-          <button class="btn" id="saveBtn" value="default">Enregistrer</button>
+    </section>
+  </main>
+</div>
+
+<!-- Modal Notation Zone -->
+<dialog id="rateModal">
+  <form method="dialog" class="mod" id="rateForm">
+    <div class="mod-hd">
+      <div>Notation – <span id="rateTitle">Zone</span> <span id="statusPill" class="pill-ok" style="display:none">Complète</span></div>
+      <button class="btn secondary small" id="btnCloseRate">Fermer</button>
+    </div>
+    <div class="mod-bd">
+      <div class="mod-grid">
+        <div class="cardX">
+          <h4>Propreté de la zone (sur 10)</h4>
+          <div class="checks" data-weight="10" data-key="proprete"></div>
+        </div>
+        <div class="cardX">
+          <h4>Présence & état des affiches (sur 10)</h4>
+          <div class="checks" data-weight="10" data-key="affiches"></div>
+        </div>
+        <div class="cardX">
+          <h4>Accessibilité des contenants (sur 10)</h4>
+          <div class="checks" data-weight="10" data-key="accessibilite"></div>
+        </div>
+        <div class="cardX">
+          <h4>Respect du tri (sur 25)</h4>
+          <div class="checks" data-weight="25" data-key="tri"></div>
+        </div>
+        <div class="cardX">
+          <h4>État des bennes (sur 20)</h4>
+          <div class="checks" data-weight="20" data-key="bennes"></div>
+        </div>
+        <div class="cardX">
+          <h4>Départ des contenants (sur 10)</h4>
+          <div class="checks" data-weight="10" data-key="depart"></div>
         </div>
       </div>
-    </form>
-  </dialog>
 
-  <script>
-    // --- Utilitaires ---
-    const WEIGHTS = { proprete:10, affiches:10, accessibilite:10, tri:25, bennes:20, depart:10 };
-    const KEYS = Object.keys(WEIGHTS);
-    const MAX_TOTAL = Object.values(WEIGHTS).reduce((a,b)=>a+b,0); // 85
+      <div class="cardX">
+        <h4>Photo & commentaire</h4>
+        <div class="preview" id="photoPreview"><span class="muted">Aucune image</span></div>
+        <input type="file" id="photoInput" accept="image/*"/>
+        <textarea id="photoComment" placeholder="Commentaire sur la photo (ex: emplacement, anomalie, n° benne…)"></textarea>
+      </div>
 
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
+      <div class="cardX">
+        <h4>Récapitulatif</h4>
+        <div class="muted">Cochez 0–4 cases par catégorie. Chaque case vaut un quart du total de la catégorie.</div>
+        <p><strong>Score :</strong> <span id="zoneScore">0</span> / <span id="zoneMax">85</span></p>
+      </div>
+    </div>
+    <div class="mod-ft">
+      <span class="muted">Données stockées dans le navigateur.</span>
+      <div class="row">
+        <button class="btn secondary small" id="btnDeleteZone">Effacer la zone</button>
+        <button class="btn small" id="btnSaveRate">Enregistrer</button>
+      </div>
+    </div>
+  </form>
+</dialog>
 
-    const storeKey = z => `tournee_zone_${z}`;
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    function quartToScore(weight, n){
-      // n = nb de cases cochées (0..4)
-      return (weight/4) * n;
-    }
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script>
+"use strict";
 
-    function formatScore(data){
-      return KEYS.reduce((sum,k)=> sum + quartToScore(WEIGHTS[k], (data[k]||[]).filter(Boolean).length), 0);
-    }
+/* ===== File-safe error toast ===== */
+window.addEventListener('error', (e)=>{ try{ console.error(e.error||e.message); toast('Erreur: '+(e.message||'voir console')); }catch{} });
 
-    function saveZoneData(zoneId, data){
-      localStorage.setItem(storeKey(zoneId), JSON.stringify(data));
-    }
+/* ===== Helpers ===== */
+const $ = (q)=>document.querySelector(q);
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 
-    function loadZoneData(zoneId){
-      const raw = localStorage.getItem(storeKey(zoneId));
-      return raw ? JSON.parse(raw) : null;
-    }
+/* ===== Panneau (desktop tiroir) ===== */
+const panel = $('#panel');
+$('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
+$('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
-    function deleteZoneData(zoneId){
-      localStorage.removeItem(storeKey(zoneId));
-    }
+/* ===== Données ===== */
+const coords = /* inchangé */ JSON.parse(decodeURIComponent('%7B%22MR5%20Atelier2%22%3A%7B%22x%22%3A243%2C%22y%22%3A684%7D%2C%22MR15%22%3A%7B%22x%22%3A301%2C%22y%22%3A606%7D%2C%22MR13%22%3A%7B%22x%22%3A312%2C%22y%22%3A577%7D%2C%22MR6%20Enduis%20et%20Peinture%22%3A%7B%22x%22%3A400%2C%22y%22%3A600%7D%2C%22MR13%20Atelier%204%22%3A%7B%22x%22%3A392%2C%22y%22%3A648%7D%2C%22MR1%22%3A%7B%22x%22%3A392%2C%22y%22%3A704%7D%2C%22MR13%20Atelier5%22%3A%7B%22x%22%3A461%2C%22y%22%3A728%7D%2C%22MR5%20Atelier23%22%3A%7B%22x%22%3A369%2C%22y%22%3A763%7D%2C%22MR3%20Voie%2035D%22%3A%7B%22x%22%3A552%2C%22y%22%3A554%7D%2C%22MR6%20KD%20Lavage%22%3A%7B%22x%22%3A536%2C%22y%22%3A505%7D%2C%22MR4%20Atelier6%22%3A%7B%22x%22%3A854%2C%22y%22%3A419%7D%2C%22BUMR%22%3A%7B%22x%22%3A790%2C%22y%22%3A460%7D%2C%22MR2%20-%20MR13%22%3A%7B%22x%22%3A680%2C%22y%22%3A665%7D%2C%22MR2%20Porte%22%3A%7B%22x%22%3A665%2C%22y%22%3A711%7D%2C%22MR2%20Fen%C3%AAtre%22%3A%7B%22x%22%3A670%2C%22y%22%3A747%7D%2C%22MR2%20Etabli%22%3A%7B%22x%22%3A738%2C%22y%22%3A747%7D%2C%22MR3%22%3A%7B%22x%22%3A774%2C%22y%22%3A659%7D%2C%22MR2%20HUB%22%3A%7B%22x%22%3A852%2C%22y%22%3A685%7D%2C%22MR7%20Peinture%20%2B%20pon%C3%A7age%22%3A%7B%22x%22%3A953%2C%22y%22%3A607%7D%2C%22MR7%20pr%C3%A9paration%22%3A%7B%22x%22%3A934%2C%22y%22%3A749%7D%2C%22CABOUT%22%3A%7B%22x%22%3A1034%2C%22y%22%3A688%7D%2C%22PRM11%22%3A%7B%22x%22%3A1028%2C%22y%22%3A745%7D%2C%22PRM4%22%3A%7B%22x%22%3A1189%2C%22y%22%3A747%7D%2C%22PRM5%20Compresseur%22%3A%7B%22x%22%3A1258%2C%22y%22%3A692%7D%2C%22PRM10%20Rechauffeur%22%3A%7B%22x%22%3A1325%2C%22y%22%3A678%7D%2C%22PRM1%20MVT%22%3A%7B%22x%22%3A1321%2C%22y%22%3A740%7D%2C%22PRM3%22%3A%7B%22x%22%3A1336%2C%22y%22%3A532%7D%2C%22PRM2%22%3A%7B%22x%22%3A1322%2C%22y%22%3A428%7D%2C%22PRM7%20Atelier12%22%3A%7B%22x%22%3A1280%2C%22y%22%3A345%7D%2C%22PRM6%20CAPA%22%3A%7B%22x%22%3A1203%2C%22y%22%3A331%7D%2C%22PRM6%20Blow%20WC%22%3A%7B%22x%22%3A1496%2C%22y%22%3A730%7D%2C%22PRM6%20Pi%C3%A8ces%20sanitaire%22%3A%7B%22x%22%3A1474%2C%22y%22%3A665%7D%2C%22PRM6%20Lavage%22%3A%7B%22x%22%3A1468%2C%22y%22%3A608%7D%2C%22SC2%20Amont%20CT10%22%3A%7B%22x%22%3A1452%2C%22y%22%3A490%7D%2C%22SC2%20Magasin%22%3A%7B%22x%22%3A1596%2C%22y%22%3A499%7D%2C%22SC2%20R%C3%A9ception%22%3A%7B%22x%22%3A1527%2C%22y%22%3A420%7D%2C%22SC%20Kitting%22%3A%7B%22x%22%3A1534%2C%22y%22%3A355%7D%2C%22MR8%20Grenailleuse%22%3A%7B%22x%22%3A1504%2C%22y%22%3A249%7D%2C%22Bogies%22%3A%7B%22x%22%3A1670%2C%22y%22%3A287%7D%2C%22MABOR%22%3A%7B%22x%22%3A1804%2C%22y%22%3A282%7D%2C%22PRM8%22%3A%7B%22x%22%3A1732%2C%22y%22%3A733%7D%2C%22Z1%22%3A%7B%22x%22%3A1875%2C%22y%22%3A584%7D%2C%22Z2%22%3A%7B%22x%22%3A1814%2C%22y%22%3A755%7D%2C%22Z3%22%3A%7B%22x%22%3A1768%2C%22y%22%3A366%7D%2C%22Z4%22%3A%7B%22x%22%3A1634%2C%22y%22%3A379%7D%2C%22Z5%22%3A%7B%22x%22%3A1602%2C%22y%22%3A182%7D%2C%22Z6%22%3A%7B%22x%22%3A1416%2C%22y%22%3A382%7D%2C%22Z7%22%3A%7B%22x%22%3A1529%2C%22y%22%3A492%7D%2C%22Z8%22%3A%7B%22x%22%3A1415%2C%22y%22%3A448%7D%2C%22Z9%22%3A%7B%22x%22%3A1419%2C%22y%22%3A617%7D%2C%22Z10%22%3A%7B%22x%22%3A1590%2C%22y%22%3A676%7D%2C%22Z11%22%3A%7B%22x%22%3A1415%2C%22y%22%3A734%7D%2C%22Z12%22%3A%7B%22x%22%3A1205%2C%22y%22%3A204%7D%2C%22Z13%22%3A%7B%22x%22%3A1285%2C%22y%22%3A412%7D%2C%22Z14%22%3A%7B%22x%22%3A1111%2C%22y%22%3A371%7D%2C%22Z15%22%3A%7B%22x%22%3A1200%2C%22y%22%3A603%7D%2C%22Z16%22%3A%7B%22x%22%3A1026%2C%22y%22%3A620%7D%2C%22Z17%22%3A%7B%22x%22%3A1122%2C%22y%22%3A644%7D%2C%22Z18%22%3A%7B%22x%22%3A1048%2C%22y%22%3A544%7D%2C%22Z19%22%3A%7B%22x%22%3A921%2C%22y%22%3A329%7D%2C%22Z20%22%3A%7B%22x%22%3A834%2C%22y%22%3A378%7D%2C%22Z21%22%3A%7B%22x%22%3A710%2C%22y%22%3A415%7D%2C%22Z22%22%3A%7B%22x%22%3A704%2C%22y%22%3A600%7D%2C%22Z23%22%3A%7B%22x%22%3A865%2C%22y%22%3A608%7D%2C%22Z24%22%3A%7B%22x%22%3A735%2C%22y%22%3A714%7D%2C%22Z25%22%3A%7B%22x%22%3A965%2C%22y%22%3A728%7D%2C%22Z26%22%3A%7B%22x%22%3A785%2C%22y%22%3A791%7D%2C%22Z27%22%3A%7B%22x%22%3A602%2C%22y%22%3A788%7D%2C%22Z28%22%3A%7B%22x%22%3A478%2C%22y%22%3A433%7D%2C%22Z29%22%3A%7B%22x%22%3A442%2C%22y%22%3A511%7D%2C%22Z30%22%3A%7B%22x%22%3A317%2C%22y%22%3A547%7D%2C%22Z31%22%3A%7B%22x%22%3A212%2C%22y%22%3A600%7D%2C%22Z32%22%3A%7B%22x%22%3A1156%2C%22y%22%3A738%7D%2C%22Z33%22%3A%7B%22x%22%3A292%2C%22y%22%3A689%7D%2C%22Z34%22%3A%7B%22x%22%3A511%2C%22y%22%3A685%7D%2C%22Z35%22%3A%7B%22x%22%3A1534%2C%22y%22%3A329%7D%2C%22Z36%22%3A%7B%22x%22%3A1119%2C%22y%22%3A598%7D%2C%22Bureau%20Administratif%22%3A%7B%22x%22%3A1524%2C%22y%22%3A152%7D%7D'));
 
-    function listAllZones(){
-      return $$('#zones-group > g.zone').map(g=>g.id);
-    }
+const dechetsParZone = /* inchangé */ JSON.parse(decodeURIComponent('%7B%22Z1%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z2%22%3A%5B%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22Caoutchouc%22%2C%22Bois%22%2C%22Carton%22%2C%22Condenseur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%5D%2C%22Z3%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z4%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bac%20noir%22%2C%22Polystyr%C3%A8ne%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z5%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Cartouche%20d'encre%22%5D%2C%22Z6%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z7%22%3A%5B%22Bac%20noir%22%2C%22Plastique%22%5D%2C%22Z8%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22Bac%20jaune%22%2C%22Bac%20noir%22%5D%2C%22Z9%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Bac%20noir%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z10%22%3A%5B%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Non%20ferreux%22%2C%22Carton%22%5D%2C%22Z11%22%3A%5B%22Carton%22%2C%22Bois%22%2C%22Polystyr%C3%A8ne%22%2C%22Plastique%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22R%C3%A9hausses%20KC%22%2C%22A%C3%A9rosols%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Ferreux%22%2C%22Caoutchouc%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z12%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z13%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Cuivre%22%2C%22Non%20ferreux%22%2C%22DEEE%22%2C%22Caoutchouc%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z14%22%3A%5B%22A%C3%A9rosols%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Carton%22%2C%22Bois%22%2C%22R%C3%A9hausses%20KC%22%5D%2C%22Z15%22%3A%5B%22DEEE%22%2C%22Carton%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22Bac%20noir%22%5D%2C%22Z16%22%3A%5B%22Piles%20et%20Accumulateur%22%2C%22Cartouche%20d'encre%22%2C%22V%C3%AAtements%20usag%C3%A9es%22%2C%22Bac%20noir%22%2C%22A%C3%A9rosols%22%2C%22DEEE%22%2C%22Carton%22%2C%22Bac%20jaune%22%5D%2C%22Z17%22%3A%5B%22DEEE%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z18%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Verre%22%2C%22D%C3%A9chets%20non%20dangereux%22%5D%2C%22Z19%22%3A%5B%22Bac%20noir%22%5D%2C%22Z20%22%3A%5B%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Bois%22%2C%22Carton%22%2C%22Plastique%22%2C%22Bac%20plomb%22%5D%2C%22Z21%22%3A%5B%22Verre%22%2C%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22DEEE%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22GRV%20Huiles%22%2C%22GRV%20Cool%20Elf%22%5D%2C%22Z22%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22F%C3%BBt%20peinture%22%5D%2C%22Z23%22%3A%5B%22Ampoules%22%2C%22N%C3%A9ons%22%2C%22A%C3%A9rosols%22%2C%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z24%22%3A%5B%22Caoutchouc%22%2C%22P%C3%A9lican%22%2C%22Verre%22%5D%2C%22Z25%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z26%22%3A%5B%22Carton%22%2C%22Bois%22%5D%2C%22Z27%22%3A%5B%22Bois%22%2C%22Carton%22%2C%22Ferreux%22%2C%22Non%20ferreux%22%2C%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Plastique%22%2C%22Polystyr%C3%A8ne%22%2C%22A%C3%A9rosols%22%5D%2C%22Z28%22%3A%5B%22Ferreux%22%2C%22Bac%20noir%22%2C%22F%C3%BBt%20filtres%22%2C%22Huile%20usag%C3%A9es%22%5D%2C%22Z29%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%5D%2C%22Z30%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22P%C3%A9lican%22%2C%22Bac%20jaune%22%2C%22Carton%22%2C%22Bois%22%2C%22DEEE%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%2C%22A%C3%A9rosols%22%2C%22Amiante%22%5D%2C%22Z31%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Amiante%22%5D%2C%22Z32%22%3A%5B%22Geobox%20D%C3%A9chets%20dangereux%22%2C%22Non%20ferreux%22%2C%22Ferreux%22%5D%2C%22Z33%22%3A%5B%22Amiante%22%5D%2C%22Z34%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%5D%2C%22Z35%22%3A%5B%22Bac%20noir%22%2C%22Bac%20jaune%22%2C%22Plastique%22%2C%22Carton%22%5D%7D'));
 
-    function refreshZoneStyles(){
-      listAllZones().forEach(id=>{
-        const g = document.getElementById(id);
-        const data = loadZoneData(id);
-        const filled = data && data._complete;
-        g.classList.toggle('filled', !!filled);
-        // Sidebar chips
-        const chip = document.querySelector(`[data-chip="${id}"]`);
-        if(chip){
-          chip.classList.toggle('filled', !!filled);
-          const score = data ? formatScore(data) : 0;
-          chip.querySelector('.score').textContent = `${score} / ${MAX_TOTAL}`;
-        }
-      });
-    }
+/* ===== Barres et sélecteurs (Choices) ===== */
+let choicesZone, choicesDechet;
+function initChoices(){
+  const hasChoices = typeof Choices === 'function';
+  const zoneSel = $('#zoneSelect');
+  const dechSel = $('#dechetSelect');
+  // Toujours inclure "Ma localisation" d'emblée pour éviter de manipuler le <select> natif pendant Choices
+  const zoneOpts = ['Ma localisation', ...Object.keys(coords).filter(k=>!k.startsWith('Z'))];
+  zoneSel.innerHTML = zoneOpts.map(v=>`<option value="${v}">${v}</option>`).join('');
 
-    function buildSidebar(){
-      const list = $('#zoneList'); list.innerHTML = '';
-      listAllZones().forEach(id=>{
-        const data = loadZoneData(id);
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'zone-chip';
-        item.setAttribute('data-chip', id);
-        item.innerHTML = `<span class="label">${id}</span><span class="score">${data?formatScore(data):0} / ${MAX_TOTAL}</span>`;
-        item.addEventListener('click', ()=> openModalForZone(id));
-        list.appendChild(item);
-      });
-      refreshZoneStyles();
-    }
+  const allTypes=[...new Set(Object.values(dechetsParZone).flat())].sort();
+  dechSel.innerHTML = allTypes.map(v=>`<option value="${v}">${v}</option>`).join('');
 
-    // --- Modal & formulaire ---
-    const modal = $('#modal');
-    const zoneForm = $('#zoneForm');
-    const photoInput = $('#photoInput');
-    const photoPreview = $('#photoPreview');
-    const photoComment = $('#photoComment');
-    const zoneScoreEl = $('#zoneScore');
-    const zoneMaxEl = $('#zoneMax');
-    zoneMaxEl.textContent = MAX_TOTAL;
+  if(hasChoices){
+    choicesZone   = new Choices(zoneSel,   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
+    choicesDechet = new Choices(dechSel, {searchEnabled:true,shouldSort:true, itemSelectText:'',placeholderValue:'Rechercher un déchet…'});
+  }
 
-    // Crée 4 cases par catégorie
-    $$('.checks').forEach(div=>{
-      const key = div.dataset.key; const weight = Number(div.dataset.weight);
-      for(let i=1;i<=4;i++){
-        const id = `${key}_${i}`;
-        const label = document.createElement('label');
-        label.innerHTML = `<input type="checkbox" id="${id}" data-key="${key}" data-idx="${i}"><span>${i}</span>`;
-        div.appendChild(label);
-      }
-    });
+  zoneSel.addEventListener('change', e=>{
+    updateInfoPanel(e.target.value);
+    const types=dechetsParZone[e.target.value]||allTypes;
+    if(hasChoices){ choicesDechet.clearChoices(); types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false)); }
+    else { dechSel.innerHTML = types.map(v=>`<option value="${v}">${v}</option>`).join(''); }
+  });
+}
+function updateInfoPanel(zone){
+  const ul=$('#dechetList'); ul.innerHTML='';
+  (dechetsParZone[zone]||[]).sort().forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
+  if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
+  $('#kpiZone').textContent = zone || '—';
+}
 
-    let currentZone = null;
+/* ===== Carte : fit contain + zoom/pan ===== */
+const mapContainer=$('#mapContainer');
+const mapImg=$('#mapImage');
+const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
 
-    function openModalForZone(zoneId){
-      currentZone = zoneId;
-      $('#modalTitle').textContent = `Zone ${zoneId}`;
-      // reset
-      zoneForm.reset();
-      photoPreview.innerHTML = '<span class="muted">Aucune image</span>';
-      // load data
-      const data = loadZoneData(zoneId);
-      if(data){
-        // checks
-        KEYS.forEach(k=>{
-          const arr = data[k] || [false,false,false,false];
-          arr.forEach((v,idx)=>{
-            const cb = document.querySelector(`input[data-key="${k}"][data-idx="${idx+1}"]`);
-            if(cb) cb.checked = !!v;
-          });
-        });
-        // photo
-        if(data.photo){
-          const img = document.createElement('img'); img.src = data.photo; photoPreview.innerHTML=''; photoPreview.appendChild(img);
-        }
-        photoComment.value = data.photoComment || '';
-      }
-      updateLiveScore();
-      modal.showModal();
-    }
+let base={s:1,ox:0,oy:0,iw:1,ih:1}; let view={z:1, panX:0, panY:0}; let dragging=false, lx=0, ly=0;
 
-    $$('#zones-group > g.zone').forEach(g=>{
-      g.addEventListener('click', ()=> openModalForZone(g.id));
-      g.addEventListener('keypress', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openModalForZone(g.id);} });
-    });
+function computeFit(){ const r=mapContainer.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1; const s=Math.min(r.width/base.iw, r.height/base.ih); base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2; }
+function applyLayout(){ const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z; mapImg.style.width=w+'px'; mapImg.style.height=h+'px'; mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px'; $('#kpiZoom').textContent=Math.round(view.z*100)+'%'; }
+function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
+new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
+mapImg.addEventListener('load', ()=>{ fitAndCenter(); }); if (mapImg.complete) setTimeout(fitAndCenter,0);
 
-    function updateLiveScore(){
-      const temp = {};
-      KEYS.forEach(k=>{
-        temp[k] = Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked);
-      });
-      const score = formatScore(temp);
-      zoneScoreEl.textContent = Math.round(score*100)/100;
-    }
+function imgToScreen(pt){ return { x: (base.ox+view.panX) + pt.x*(base.s*view.z), y: (base.oy+view.panY) + pt.y*(base.s*view.z) }; }
+function screenToImg(x,y){ return { x: (x - base.ox - view.panX) / (base.s*view.z), y: (y - base.oy - view.panY) / (base.s*view.z) }; }
+function setZoom(z,cx,cy){ const MIN=0.1, MAX=4; z=Math.max(MIN,Math.min(MAX,z)); if(typeof cx==='number' && typeof cy==='number'){ const before=screenToImg(cx,cy); view.z=z; applyLayout(); const after=imgToScreen(before); view.panX += (cx - after.x); view.panY += (cy - after.y); } else { view.z=z; } applyLayout(); drawAll(); }
+$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
+$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
+$('#btnFit').onclick = ()=> fitAndCenter();
+mapContainer.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId); });
+mapContainer.addEventListener('pointermove', e=>{ if(!dragging) return; view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
+mapContainer.addEventListener('pointerup', ()=> dragging=false);
+mapContainer.addEventListener('pointercancel', ()=> dragging=false);
+mapContainer.addEventListener('wheel', e=>{ e.preventDefault(); const rect=mapContainer.getBoundingClientRect(); setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top); },{passive:false});
 
-    zoneForm.addEventListener('change', (e)=>{
-      if(e.target.matches('input[type="checkbox"]')) updateLiveScore();
-    });
+/* ===== Notation Zones ===== */
+const WEIGHTS = { proprete:10, affiches:10, accessibilite:10, tri:25, bennes:20, depart:10 };
+const KEYS = Object.keys(WEIGHTS);
+const MAX_TOTAL = Object.values(WEIGHTS).reduce((a,b)=>a+b,0);
+const zoneMaxEl = document.getElementById('zoneMax'); if(zoneMaxEl) zoneMaxEl.textContent = MAX_TOTAL;
+const rateModal = document.getElementById('rateModal'); const rateForm = document.getElementById('rateForm');
+const rateTitle = document.getElementById('rateTitle'); const zoneScoreEl = document.getElementById('zoneScore'); const statusPill = document.getElementById('statusPill');
+const photoInput = document.getElementById('photoInput'); const photoPreview = document.getElementById('photoPreview'); const photoComment = document.getElementById('photoComment');
+let currentZone = null;
+function zoneStoreKey(z){ return `audit_zone_${z}`; }
+function loadZone(z){ const raw=localStorage.getItem(zoneStoreKey(z)); return raw?JSON.parse(raw):null; }
+function saveZone(z,data){ localStorage.setItem(zoneStoreKey(z), JSON.stringify(data)); }
+function deleteZone(z){ localStorage.removeItem(zoneStoreKey(z)); }
+function quartToScore(weight,n){ return (weight/4)*n; }
+function computeScore(payload){ return KEYS.reduce((s,k)=> s + quartToScore(WEIGHTS[k], (payload[k]||[]).filter(Boolean).length), 0); }
+function isComplete(payload){ return KEYS.every(k=> (payload[k]||[]).some(v=>v)); }
+Array.from(document.querySelectorAll('.checks')).forEach(div=>{ const key=div.dataset.key; for(let i=1;i<=4;i++){ const id=`${key}_${i}`; const lab=document.createElement('label'); lab.innerHTML=`<input type="checkbox" id="${id}" data-key="${key}" data-idx="${i}"><span>${i}</span>`; div.appendChild(lab);} });
+function openRate(z){ currentZone=z; rateTitle.textContent = z; statusPill.style.display='none'; rateForm.reset(); document.querySelectorAll('.checks input').forEach(cb=> cb.checked=false); photoPreview.innerHTML='<span class="muted">Aucune image</span>'; const data=loadZone(z); if(data){ KEYS.forEach(k=>{ (data[k]||[false,false,false,false]).forEach((v,idx)=>{ const cb=document.querySelector(`input[data-key="${k}"][data-idx="${idx+1}"]`); if(cb) cb.checked=!!v; }); }); if(data.photo){ const img=document.createElement('img'); img.src=data.photo; photoPreview.innerHTML=''; photoPreview.appendChild(img);} photoComment.value=data.photoComment||''; } updateScoreLive(); rateModal.showModal(); }
+$('#btnCloseRate').addEventListener('click', (e)=>{ e.preventDefault(); rateModal.close(); });
+function updateScoreLive(){ const tmp={}; KEYS.forEach(k=> tmp[k]=Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked)); const score=computeScore(tmp); zoneScoreEl.textContent = Math.round(score*100)/100; statusPill.style.display = isComplete(tmp)?'inline-flex':'none'; }
+// Délégation d'événements (plus robuste)
+document.addEventListener('change', (e)=>{ if(e.target && e.target.matches('.checks input[type="checkbox"]')) updateScoreLive(); });
+photoInput.addEventListener('change', ()=>{ const f=photoInput.files?.[0]; if(!f){ photoPreview.innerHTML='<span class="muted">Aucune image</span>'; return; } const r=new FileReader(); r.onload=()=>{ const img=document.createElement('img'); img.src=r.result; photoPreview.innerHTML=''; photoPreview.appendChild(img); }; r.readAsDataURL(f); });
+$('#btnSaveRate').addEventListener('click', (e)=>{ e.preventDefault(); if(!currentZone) return; const payload={ _zone:currentZone }; KEYS.forEach(k=> payload[k]=Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked)); const img=photoPreview.querySelector('img'); payload.photo = img?img.src:null; payload.photoComment = photoComment.value||''; payload._score = computeScore(payload); payload._complete = isComplete(payload); saveZone(currentZone,payload); rateModal.close(); drawAll(); });
+$('#btnDeleteZone').addEventListener('click', (e)=>{ e.preventDefault(); if(!currentZone) return; if(confirm(`Supprimer les données pour ${currentZone} ?`)){ deleteZone(currentZone); rateModal.close(); drawAll(); }});
 
-    // Preview image
-    photoInput.addEventListener('change', async (e)=>{
-      const file = e.target.files?.[0];
-      if(!file){ photoPreview.innerHTML = '<span class="muted">Aucune image</span>'; return; }
-      const reader = new FileReader();
-      reader.onload = ()=>{
-        const img = document.createElement('img'); img.src = reader.result; photoPreview.innerHTML=''; photoPreview.appendChild(img);
-      };
-      reader.readAsDataURL(file);
-    });
+/* ===== Dessin ===== */
+let route=null; let userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
+function drawAll(){ const r = mapContainer.getBoundingClientRect(); ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(route){ const p0=imgToScreen(route.from), p1=imgToScreen(route.to); ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)'; ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore(); const rad=8+4*Math.abs(Math.sin(performance.now()/350)); ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke(); ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke(); }
+  const ZONES = Object.keys(coords).filter(k=>k.startsWith('Z'));
+  for(const z of ZONES){ const scr=imgToScreen(coords[z]); const data=loadZone(z); const filled = data && data._complete; ctx.beginPath(); ctx.arc(scr.x,scr.y,14,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle = filled ? '#16a34a' : '#ef4444'; ctx.fillStyle = filled ? 'rgba(22,163,74,.18)' : 'rgba(239,68,68,.12)'; ctx.fill(); ctx.stroke(); }
+  if(userPos){ const p=imgToScreen(userPos); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill(); ctx.strokeStyle='#065f46'; ctx.stroke(); const angRad = normalizedHeadingRad(); if(angRad!=null){ const ang=angRad - Math.PI/2; const len=80; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath(); ctx.fillStyle='#2563eb'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath(); ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill(); ctx.restore(); } }
+}
+(function loop(){ requestAnimationFrame(loop); drawAll(); })();
 
-    // Save
-    $('#saveBtn').addEventListener('click', (e)=>{
-      e.preventDefault();
-      if(!currentZone) return;
-      const payload = { _zone: currentZone };
-      KEYS.forEach(k=>{
-        payload[k] = Array.from(document.querySelectorAll(`input[data-key="${k}"]`)).map(cb=>cb.checked);
-      });
-      payload._score = formatScore(payload);
-      payload._complete = KEYS.every(k=> (payload[k]||[]).some(v=>v)); // au moins 1 case dans chaque catégorie
-      // photo
-      const previewImg = photoPreview.querySelector('img');
-      payload.photo = previewImg ? previewImg.src : null;
-      payload.photoComment = photoComment.value || '';
-      saveZoneData(currentZone, payload);
-      modal.close();
-      refreshZoneStyles();
-    });
+/* ===== Interaction carte : ouverture fiche si clic proche d'une Z* ===== */
+let pick=false;
+$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’EMPLACEMENT d’origine':'Sélection par clic désactivée'); });
+mapContainer.addEventListener('click', e=>{ const rect=mapContainer.getBoundingClientRect(); const imgPt=screenToImg(e.clientX-rect.left, e.clientY-rect.top); if(pick){ let best=null,dmin=Infinity; Object.keys(coords).forEach(name=>{ if(!name.startsWith('Z')){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; best=name; } } }); if(best){ const sel=$('#zoneSelect'); sel.value=best; sel.dispatchEvent(new Event('change', {bubbles:true})); pick=false; } return; } let nearest=null, dmin=Infinity; Object.keys(coords).forEach(name=>{ if(name.startsWith('Z')){ const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y); if(d<dmin){ dmin=d; nearest=name; } } }); const threshold=28/(base.s*view.z); if(nearest && dmin<=threshold){ updateInfoPanel(nearest); openRate(nearest); }});
 
-    // Delete only this zone
-    $('#deleteZone').addEventListener('click', ()=>{
-      if(!currentZone) return;
-      if(confirm(`Supprimer les données pour ${currentZone} ?`)){
-        deleteZoneData(currentZone);
-        refreshZoneStyles();
-        modal.close();
-      }
-    });
+/* ===== Tracer / Effacer ===== */
+$('#btnOK').addEventListener('click', ()=>{ const dep=$('#zoneSelect').value; const waste=($('#dechetSelect').value||'').toLowerCase().trim(); let origin=null; if(dep && coords[dep]) origin=coords[dep]; if(dep==='Ma localisation' && userPos) origin=userPos; if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; } let best=null,dmin=Infinity; for(const z in dechetsParZone){ if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){ const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y); if(d<dmin){ dmin=d; best=z; } } } if(!best){ toast('Aucune zone pour ce déchet.'); return; } updateInfoPanel(best); route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} }; });
+$('#btnClear').addEventListener('click', ()=>{ route=null; drawAll(); });
 
-    // Close
-    $('#closeModal').addEventListener('click', (e)=>{ e.preventDefault(); modal.close(); });
+/* ===== GPS + Boussole (HTTPS requis) ===== */
+const calibration = [ {lat:45.193611, lon:0.705167, x:coords['Z12'].x, y:coords['Z12'].y}, {lat:45.192694, lon:0.706000, x:coords['Z5'].x, y:coords['Z5'].y}, {lat:45.192194, lon:0.706083, x:coords['MABOR'].x, y:coords['MABOR'].y} ];
+function gpsToPixel(lat, lon){ const [P0,P1,P2]=calibration; const lat0=P0.lat, lon0=P0.lon; const avgLat=(P0.lat+P1.lat+P2.lat)/3 * Math.PI/180; const kx=111320*Math.cos(avgLat), ky=111320; function bary(px,py,x0,y0,x1,y1,x2,y2){ const det=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2); const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/det; const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/det; const w=1-u-v; return [u,v,w]; } const px=(lon-lon0)*kx, py=(lat-lat0)*ky; const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky, x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky; const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2); return { x:u*P0.x+v*P1.x+w*P2.x, y:u*P0.y+v*P1.y+w*P2.y }; }
+function screenOrientationAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
+function normalizedHeadingDeg(){ if (headingDegRaw==null) return null; let h; if (headingSource==='ios'){ h=headingDegRaw; } else { h=360-headingDegRaw; h+=screenOrientationAngle(); } h+=compassOffsetDeg; return ((h%360)+360)%360; }
+function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
+function handleOrient(e){ if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; } else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; } const h=normalizedHeadingDeg(); $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`; $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°'); }
+function calibrateCompassToZero(){ const h=normalizedHeadingDeg() ?? headingDegRaw; if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; } compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`); }
+function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
+$('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
+$('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
+$('#btnNudgePlus').addEventListener('click', ()=>{ nudgeOffset(+5); toast('Offset +5°'); });
+let watchId=null, compassEnabled=false;
+$('#btnGPS').addEventListener('click', ()=>{
+  if(!navigator.geolocation){ toast('GPS non disponible'); return; }
+  if(watchId==null){ watchId = navigator.geolocation.watchPosition(pos=>{ const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude); userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`; $('#chipGps').textContent='GPS: on'; }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true}); }
+  if(!compassEnabled){ if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){ DeviceOrientationEvent.requestPermission().then(res=>{ if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; } else { $('#chipCompass').textContent='Boussole: refusée'; } }).catch(()=> toast('Boussole indisponible')); }else{ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){ screen.orientation.addEventListener('change', handleOrient); } else { window.addEventListener('orientationchange', handleOrient); }
+  }
+  if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
+});
 
-    // Export JSON
-    function download(name, data, type='application/json'){
-      const blob = new Blob([data], {type});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-      setTimeout(()=> URL.revokeObjectURL(url), 1000);
-    }
+/* ===== Export / Reset ===== */
+function allZones(){ return Object.keys(coords).filter(k=>k.startsWith('Z')); }
+function exportJson(){ const out=allZones().map(z=>({zone:z,data:loadZone(z)})); download(`tournee_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(out,null,2), 'application/json'); }
+function exportCsv(){ const rows=[["zone","proprete(0-4)","affiches(0-4)","accessibilite(0-4)","tri(0-4)","bennes(0-4)","depart(0-4)","score","complete","photoComment"]]; allZones().forEach(z=>{ const d=loadZone(z)||{}; const toN=k=> (d[k]||[]).filter(Boolean).length; rows.push([z,toN('proprete'),toN('affiches'),toN('accessibilite'),toN('tri'),toN('bennes'),toN('depart'), d._score||0, d._complete?1:0, (d.photoComment||'').replace(/
+/g,' ') ]); }); const csv=rows.map(r=> r.map(v=> String(v).includes(',')?`"${String(v).replaceAll('"','""')}"`:v).join(',')).join('
+'); download(`tournee_${new Date().toISOString().slice(0,10)}.csv`, csv, 'text/csv'); }
+function download(name, data, type='application/octet-stream'){ const blob=new Blob([data],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }
+$('#btnExportJson').addEventListener('click', exportJson);
+$('#btnExportCsv').addEventListener('click', exportCsv);
+$('#btnResetAll').addEventListener('click', ()=>{ if(!confirm('Tout effacer ?')) return; allZones().forEach(deleteZone); drawAll(); toast('Réinitialisé'); });
 
-    $('#exportJson').addEventListener('click', ()=>{
-      const all = listAllZones().map(z=> ({ zone:z, data: loadZoneData(z) }));
-      download(`tournee_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(all, null, 2));
-    });
-
-    // Export CSV
-    $('#exportCsv').addEventListener('click', ()=>{
-      const rows = [['zone','proprete(0-4)','affiches(0-4)','accessibilite(0-4)','tri(0-4)','bennes(0-4)','depart(0-4)','score','complete','photoComment']];
-      listAllZones().forEach(z=>{
-        const d = loadZoneData(z) || {};
-        const toN = k => (d[k]||[]).filter(Boolean).length;
-        rows.push([z, toN('proprete'), toN('affiches'), toN('accessibilite'), toN('tri'), toN('bennes'), toN('depart'), d._score||0, d._complete?1:0, (d.photoComment||'').replace(/\n/g,' ') ]);
-      });
-      const csv = rows.map(r=> r.map(v=> String(v).includes(',')?`"${String(v).replaceAll('"','""')}"`:v).join(',')).join('\n');
-      download(`tournee_${new Date().toISOString().slice(0,10)}.csv`, csv, 'text/csv');
-    });
-
-    // Reset all
-    $('#resetAll').addEventListener('click', ()=>{
-      if(!confirm('Tout effacer ?')) return;
-      listAllZones().forEach(z=> deleteZoneData(z));
-      refreshZoneStyles();
-    });
-
-    // Init
-    buildSidebar();
-  </script>
+/* ===== Init ===== */
+function init(){ initChoices(); fitAndCenter(); }
+document.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
