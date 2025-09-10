@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>TICP • Localisation Déchets (Full Screen)</title>
+<title>TICP • Localisation Déchets (Full Screen + GPS Fix)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,22 +27,13 @@
   .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
   .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
 
-  /* Disposition principale : deux états
-     - mode "full-map": panneau en tiroir (hidden), carte pleine largeur/hauteur
-     - mode "split": panneau visible à gauche (mobilité) */
-  .layout{display:grid;grid-template-columns:1fr;gap:0;max-width:none;margin:0}
-  /* panneau latéral tiroir */
-  .drawer{
-    position:fixed; inset:64px 0 0 auto; /* sous la barre */
-    width:380px; max-width:92vw;
-    background:var(--panel); border-left:1px solid var(--line);
-    box-shadow:-20px 0 50px rgba(2,8,23,.15);
-    transform:translateX(100%); transition:transform .25s ease;
-    z-index:40; display:flex; flex-direction:column;
-  }
-  .drawer.open{ transform:translateX(0) }
-  .drawer header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
-  .drawer .content{padding:12px 14px;overflow:auto}
+  /* Layout principal */
+  .layout{display:block}
+
+  /* Panneau : par défaut (mobile) visible en haut, au-dessus de la carte */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 0 16px 16px;box-shadow:0 10px 30px rgba(2,8,23,.06);margin:0 0 12px 0}
+  .panel > header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .panel > .content{padding:12px 14px}
   .grid{display:grid;gap:12px}
   .two{grid-template-columns:1fr 1fr}
   .field{display:grid;gap:6px}
@@ -50,38 +41,39 @@
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   select,.choices__inner{width:100%}
 
-  /* Carte plein écran */
-  .mapwrap{
-    position:relative;
-    height:calc(100vh - 64px); /* toute la fenêtre sous la barre */
-    width:100%;
-    background:#0b1020;
-  }
+  /* Carte plein écran sous la barre (desktop) ou 70vh (mobile) */
+  .mapwrap{position:relative;width:100%;background:#0b1020}
   .stage{position:absolute;inset:0;transform-origin:top left}
   .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
   canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
 
-  /* HUD */
+  .toolbox{position:absolute;left:12px;top:12px;z-index:5;display:flex;gap:8px;flex-wrap:wrap}
   .hud{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
   .card{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:170px;color:#111827}
   .kpi{font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:center}
   .kpi strong{font-size:13px;color:#111827}
 
-  /* Toolbar flottante (zoom) */
-  .toolbox{
-    position:absolute;left:12px;top:12px;z-index:5;display:flex;gap:8px;flex-wrap:wrap
-  }
-
-  /* Toast */
   .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* Sur petits écrans : panneau visible en page (au-dessus de la carte) */
+  /* ----- Desktop : carte plein écran, panneau en tiroir latéral ----- */
+  @media (min-width:1025px){
+    .mapwrap{height:calc(100vh - 64px); border-radius:0}
+    .panel{
+      position:fixed; inset:64px 0 0 auto;
+      width:380px; max-width:92vw;
+      transform:translateX(100%); transition:transform .25s ease;
+      border-radius:0; border-left:1px solid var(--line); border-right:none; margin:0;
+      z-index:40; box-shadow:-20px 0 50px rgba(2,8,23,.15);
+    }
+    .panel.open{ transform:translateX(0) }
+    .panel .close{ display:inline-flex }
+  }
+
+  /* ----- Mobile/Tablet : panneau en haut + carte 70vh ----- */
   @media (max-width:1024px){
-    .drawer{position:static;transform:none;box-shadow:none;border-left:none;border-top:1px solid var(--line);height:auto}
-    .drawer header .close{display:none}
-    .layout{grid-template-columns:1fr}
-    .mapwrap{height:70vh;min-height:520px}
+    .mapwrap{height:70vh;min-height:520px;border-radius:16px}
+    .panel .close{ display:none }
   }
 </style>
 </head>
@@ -90,10 +82,7 @@
   <!-- Barre du haut -->
   <header class="appbar">
     <div class="bar">
-      <div class="brand">
-        <div class="logo"></div>
-        TICP • Localisation des déchets
-      </div>
+      <div class="brand"><div class="logo"></div>TICP • Localisation des déchets</div>
       <div class="row">
         <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
         <span class="chip" id="chipGps">GPS: off</span>
@@ -103,36 +92,11 @@
   </header>
 
   <main class="layout">
-    <!-- Carte plein écran -->
-    <section class="mapwrap" id="mapContainer">
-      <div class="stage" id="stage">
-        <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
-        <canvas id="overlay"></canvas>
-
-        <!-- Toolbar zoom -->
-        <div class="toolbox">
-          <button class="btn secondary small" id="zMinus">–</button>
-          <button class="btn secondary small" id="zReset">100%</button>
-          <button class="btn secondary small" id="zPlus">+</button>
-          <button class="btn secondary small" id="btnFit">Ajuster</button>
-        </div>
-
-        <!-- HUD infos -->
-        <div class="hud">
-          <div class="card">
-            <div class="kpi">Position <strong id="kpiPos">—</strong></div>
-            <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
-            <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Panneau tiroir -->
-    <aside class="drawer" id="drawer">
+    <!-- IMPORTANT : Panneau placé AVANT la carte pour qu’il soit en haut sur mobile -->
+    <section class="panel" id="panel">
       <header>
         Navigation & Recherche
-        <button class="btn secondary small close" id="btnClosePanel">Fermer</button>
+        <button class="btn secondary small close" id="btnClosePanel" style="display:none">Fermer</button>
       </header>
       <div class="content grid">
         <div class="field">
@@ -168,11 +132,34 @@
         </div>
 
         <p style="color:#6b7280;margin:6px 0 0 0">
-          • L’image est ajustée <b>en entier</b> au chargement (Ajuster pour y revenir).<br>
+          • Image ajustée <b>en entier</b> au chargement (Ajuster pour y revenir).<br>
           • Molette = zoom, glisser = déplacer. Aucun itinéraire automatique.
         </p>
       </div>
-    </aside>
+    </section>
+
+    <!-- Carte -->
+    <section class="mapwrap" id="mapContainer">
+      <div class="stage" id="stage">
+        <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+        <canvas id="overlay"></canvas>
+
+        <div class="toolbox">
+          <button class="btn secondary small" id="zMinus">–</button>
+          <button class="btn secondary small" id="zReset">100%</button>
+          <button class="btn secondary small" id="zPlus">+</button>
+          <button class="btn secondary small" id="btnFit">Ajuster</button>
+        </div>
+
+        <div class="hud">
+          <div class="card">
+            <div class="kpi">Position <strong id="kpiPos">—</strong></div>
+            <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
+            <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -186,10 +173,10 @@
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 
-/* ====== Panneau tiroir ====== */
-const drawer = $('#drawer');
-$('#btnTogglePanel').addEventListener('click', ()=> drawer.classList.toggle('open'));
-$('#btnClosePanel').addEventListener('click', ()=> drawer.classList.remove('open'));
+/* ====== Panneau (desktop = tiroir) ====== */
+const panel = $('#panel');
+$('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
+$('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
 /* ====== Données ====== */
 const coords = {
@@ -373,7 +360,7 @@ function drawAll(){
     ctx.strokeStyle='#065f46'; ctx.stroke();
     const angRad = normalizedHeadingRad();
     if(angRad!=null){
-      const ang=angRad - Math.PI/2;
+      const ang=angRad - Math.PI/2; // même rendu que ton code d’origine
       const len=80;
       ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
@@ -432,31 +419,45 @@ mapContainer.addEventListener('click', e=>{
 });
 
 /* ====== GPS + Boussole ====== */
-/* Projection GPS EXACTEMENT comme l’original (barycentrique 3 points) */
+/* ➜ Projection GPS EXACTEMENT comme la version d’origine (barycentrique 3 points) */
 const calibration = [
   {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12
   {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5
   {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y} // MABOR
 ];
-function gpsToPixel(lat, lon){
+
+function gpsToPixel(lat, lon) {
   const [P0, P1, P2] = calibration;
-  const lat0 = P0.lat, lon0 = P0.lon;
+  const lat0 = P0.lat;
+  const lon0 = P0.lon;
   const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
-  const kx = 111320 * Math.cos(avgLat), ky = 111320;
-  function bary(px, py, x0, y0, x1, y1, x2, y2){
-    const det=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2);
-    const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/det;
-    const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/det;
-    const w=1-u-v; return [u,v,w];
+  const kx = 111320 * Math.cos(avgLat);
+  const ky = 111320;
+
+  function barycentric(px, py, x0, y0, x1, y1, x2, y2) {
+    const detT = (y1 - y2)*(x0 - x2) + (x2 - x1)*(y0 - y2);
+    const u = ((y1 - y2)*(px - x2) + (x2 - x1)*(py - y2)) / detT;
+    const v = ((y2 - y0)*(px - x2) + (x0 - x2)*(py - y2)) / detT;
+    const w = 1 - u - v;
+    return [u, v, w];
   }
-  const px=(lon-lon0)*kx, py=(lat-lat0)*ky;
-  const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky;
-  const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky;
-  const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2);
-  return {x: u*P0.x+v*P1.x+w*P2.x, y: u*P0.y+v*P1.y+w*P2.y};
+
+  const px = (lon - lon0) * kx;
+  const py = (lat - lat0) * ky;
+  const x0 = 0;
+  const y0 = 0;
+  const x1 = (P1.lon - lon0) * kx;
+  const y1 = (P1.lat - lat0) * ky;
+  const x2 = (P2.lon - lon0) * kx;
+  const y2 = (P2.lat - lat0) * ky;
+
+  const [u, v, w] = barycentric(px, py, x0, y0, x1, y1, x2, y2);
+  const xp = u*P0.x + v*P1.x + w*P2.x;
+  const yp = u*P0.y + v*P1.y + w*P2.y;
+  return {x: xp, y: yp};
 }
 
-/* Boussole normalisée + calibration optionnelle */
+/* Boussole normalisée + calibration optionnelle (inchangée) */
 function screenOrientationAngle(){
   const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
   return ((a%360)+360)%360;
@@ -487,6 +488,7 @@ $('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
 $('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
 $('#btnNudgePlus').addEventListener('click', ()=>{ nudgeOffset(+5); toast('Offset +5°'); });
 
+/* Bouton GPS + Boussole */
 let watchId=null, compassEnabled=false;
 $('#btnGPS').addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('GPS non disponible'); return; }
@@ -511,21 +513,21 @@ $('#btnGPS').addEventListener('click', ()=>{
     } else { window.addEventListener('orientationchange', handleOrient); }
   }
 
-  // Ajoute "Ma localisation"
+  // Ajoute "Ma localisation" en tête si absent
   const sel=$('#zoneSelect');
   if (![...sel.options].some(o=>o.value==='Ma localisation')){
     sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
   }
 
-  // Ouvre automatiquement le panneau après activation (utile sur mobile)
-  if (window.matchMedia('(max-width:1024px)').matches) drawer.classList.add('open');
+  // Sur mobile, le panneau est déjà en haut (visible). Sur desktop, on peut ouvrir le tiroir si besoin :
+  if (window.matchMedia('(min-width:1025px)').matches) panel.classList.add('open');
 });
 
 /* ====== Init ====== */
+let choicesReady=false;
 function init(){
-  initChoices();
+  initChoices(); choicesReady=true;
   fitAndCenter(); // image entière visible immédiatement
-  // Sur desktop, le panneau reste fermé par défaut → carte plein écran.
 }
 document.addEventListener('DOMContentLoaded', init);
 </script>
