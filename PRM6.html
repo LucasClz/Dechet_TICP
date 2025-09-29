@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>TICP • Zones Déchets Z9 & Z10 (PRM6) • Export XLSX avec images</title>
+
+<!-- UI libs -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
+<!-- Export XLSX (avec images) -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+
+  .app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  header.appbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.78));border-bottom:1px solid var(--line);backdrop-filter:saturate(1.2) blur(6px)}
+  .bar{max-width:1600px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+  .logo{width:10px;height:28px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 6px rgba(230,0,126,.08)}
+  .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#eef2ff;color:#3730a3}
+  .btn{appearance:none;border:none;border-radius:10px;cursor:pointer;padding:10px 14px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 8px 22px rgba(230,0,126,.22);transition:.2s}
+  .btn:hover{background:var(--brand-700);transform:translateY(-1px)}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
+  .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
+  .btn.toggle.on{background:#111827;color:#fff;box-shadow:none}
+  .btn.danger{background:#ef4444;color:#fff;border:1px solid #ef4444}
+  .btn.danger:hover{background:#dc2626}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 0 16px 16px;box-shadow:0 10px 30px rgba(2,8,23,.06);margin:0 0 12px 0}
+  .panel>header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .panel>.content{padding:12px 14px}
+  .grid{display:grid;gap:12px}
+  .field{display:grid;gap:6px}
+  .field label{font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  /* Carte (image + overlay minimal) */
+  .mapwrap{position:relative;width:100%;background:#0b1020}
+  .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
+  canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
+  .toolbox{position:absolute;left:12px;top:12px;z-index:5;display:flex;gap:8px;flex-wrap:wrap}
+  .hud{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
+  .card{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:170px;color:#111827}
+  .kpi{font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:center}
+  .kpi strong{font-size:13px;color:#111827}
+
+  @media (min-width:1025px){
+    .mapwrap{height:calc(100vh - 64px)}
+    .panel{
+      position:fixed; inset:64px 0 0 auto;
+      width:380px; max-width:92vw; border-radius:0;
+      transform:translateX(100%); transition:transform .25s ease;
+      border-left:1px solid var(--line); border-right:none; margin:0;
+      z-index:40; box-shadow:-20px 0 50px rgba(2,8,23,.15);
+    }
+    .panel.open{ transform:translateX(0) }
+    .panel .close{ display:inline-flex }
+  }
+  @media (max-width:1024px){
+    .mapwrap{height:70vh;min-height:520px;border-radius:16px}
+    .panel .close{ display:none }
+  }
+
+  /* Modals */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,8,23,.42);backdrop-filter:blur(2px);display:none;z-index:60}
+  .modal{position:fixed;right:0;top:0;height:100%;width:min(560px,94vw);background:#fff;border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(2,8,23,.25);transform:translateX(100%);transition:transform .25s ease;z-index:70;display:flex;flex-direction:column}
+  .modal.open + .modal-backdrop{display:block}
+  .modal.open{transform:translateX(0)}
+  .modal header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal .content{padding:14px 16px;overflow:auto;flex:1}
+
+  .crit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+  .crit .checks{display:flex;gap:8px}
+  .crit small{color:var(--muted)}
+  .checks input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
+  .muted{color:var(--muted);font-size:12px}
+
+  /* Galerie photos */
+  .photos-grid{display:grid;gap:10px;margin-top:6px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .photo-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;display:grid;gap:8px}
+  .photo-card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f3f4f6;cursor:pointer;transition:transform .2s}
+  .photo-card img:hover{transform:scale(1.05)}
+  .photo-card textarea{width:100%;min-height:58px;resize:vertical}
+  .photo-card .row{justify-content:space-between}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="appbar">
+    <div class="bar">
+      <div class="brand"><div class="logo"></div>TICP • Zones Déchets Z9 & Z10 (PRM6)</div>
+      <div class="row">
+        <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
+        <button class="btn secondary small" id="btnOpenStats">Synthèse</button>
+        <button class="btn secondary small" id="btnExportXlsx" title="Exporter la tournée au format .xlsx (images incluses)">Exporter XLSX</button>
+        <button class="btn danger small" id="btnResetAll" title="Tout remettre à zéro">Réinitialiser</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" id="panel">
+      <header>
+        Navigation & Info (Z9/Z10)
+        <button class="btn secondary small close" id="btnClosePanel" style="display:none">Fermer</button>
+      </header>
+      <div class="content grid">
+        <div class="field">
+          <label for="zoneSelect">Zone (PRM6)</label>
+          <select id="zoneSelect" placeholder="Choisir Z9 ou Z10"></select>
+        </div>
+
+        <div class="field">
+          <label>Déchets de la zone</label>
+          <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0"><li>Aucune zone sélectionnée</li></ul>
+        </div>
+
+        <div class="muted">Astuce : cliquez directement sur Z9 ou Z10 sur la carte pour ouvrir la fiche.</div>
+      </div>
+    </section>
+
+    <section class="mapwrap" id="mapContainer">
+      <!-- Remplacez src par le plan de votre site si besoin -->
+      <img id="mapImage" class="mapimg" src="PRM6.png" alt="Plan du site" draggable="false"/>
+      <canvas id="overlay"></canvas>
+
+      <div class="toolbox">
+        <button class="btn secondary small" id="zMinus">–</button>
+        <button class="btn secondary small" id="zReset">100%</button>
+        <button class="btn secondary small" id="zPlus">+</button>
+        <button class="btn secondary small" id="btnFit">Ajuster</button>
+      </div>
+
+      <div class="hud">
+        <div class="card">
+          <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL FICHE -->
+<section class="modal" id="zoneModal" aria-hidden="true">
+  <header>
+    <div>
+      <div id="zoneTitle" style="font-weight:700">Fiche zone</div>
+      <div id="zoneSubtitle" class="muted"></div>
+    </div>
+    <div class="row">
+      <button class="btn secondary small toggle" id="btnGravite" title="Divise la note finale par 5 si activé">Gravité</button>
+      <span class="chip" id="scoreChip">Total : 0 / 100</span>
+      <button class="btn secondary small" id="btnCloseModal">Fermer</button>
+    </div>
+  </header>
+  <div class="content grid" id="formContainer">
+    <div class="crit"><div>Propreté de la zone<br/><small>sur 10 points</small></div>
+      <div class="checks" data-max="10" data-key="proprete">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>Présence/état des affiches<br/><small>sur 10 points</small></div>
+      <div class="checks" data-max="10" data-key="affiches">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>Accessibilité des contenants<br/><small>sur 10 points</small></div>
+      <div class="checks" data-max="10" data-key="accessibilite">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>Respect du tri<br/><small>sur 40 points</small></div>
+      <div class="checks" data-max="40" data-key="tri">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>État des bennes de déchets<br/><small>sur 20 points</small></div>
+      <div class="checks" data-max="20" data-key="bennes">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+    <div class="crit"><div>Départ des contenants<br/><small>sur 10 points</small></div>
+      <div class="checks" data-max="10" data-key="depart">
+        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      </div></div>
+
+    <!-- Galerie multi-photos -->
+    <div class="field">
+      <label>Écarts constatés (photos + commentaires)</label>
+      <div class="row">
+        <input type="file" id="photosInput" accept="image/*" capture="environment" multiple />
+      </div>
+      <div id="photosList" class="photos-grid muted">Aucune photo pour le moment</div>
+      <div class="muted">Astuce : sélection multiple possible. Chaque photo possède son propre commentaire.</div>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="btnSaveZone">Enregistrer la fiche</button>
+      <button class="btn secondary" id="btnClearZone">Réinitialiser</button>
+    </div>
+    <div class="muted">Coche 1 case par critère (100/75/50/25 %). Aucune cochée = 0. “Gravité” divise la note enregistrée par 5.</div>
+  </div>
+</section>
+<div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
+
+<!-- MODAL STATS -->
+<section class="modal" id="statsModal" aria-hidden="true">
+  <header>
+    <div style="font-weight:700">Synthèse (PRM6)</div>
+    <div class="row">
+      <span class="chip" id="statsChip">—</span>
+      <button class="btn secondary small" id="btnCloseStats">Fermer</button>
+    </div>
+  </header>
+  <div class="content grid">
+    <div id="barsContainer" class="grid"></div>
+    <div class="table" style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:80px 120px 80px 1fr 80px;gap:8px;padding:8px 10px;background:#f3f4f6;font-weight:600">
+        <div>Zone</div><div>Groupe</div><div>Nb photos</div><div>Commentaire</div><div>Score</div>
+      </div>
+      <div id="zoneRows"></div>
+    </div>
+  </div>
+</section>
+<div class="modal-backdrop" id="statsBackdrop" aria-hidden="true"></div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999"></div>
+
+<script>
+"use strict";
+
+/* ===== Helpers ===== */
+const $ = (q)=>document.querySelector(q);
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 1600); }
+function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
+function dataUrlInfo(dataUrl){
+  const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl||'');
+  if(!m) return {mime:'image/png', ext:'png', base64:''};
+  const mime=m[1]; const base64=m[2];
+  const ext = mime.includes('jpeg')?'jpeg':mime.includes('jpg')?'jpg':mime.includes('png')?'png':'png';
+  return {mime, ext, base64};
+}
+
+/* ===== IndexedDB (photos) ===== */
+const DB_NAME = 'ticp-prm6';
+const DB_VER  = 1;
+let dbPromise = null;
+
+function openDB(){
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains('photos')){
+        db.createObjectStore('photos', { keyPath: 'key' }); // { key, zone, ts, dataUrl, comment }
+      }
+    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  return dbPromise;
+}
+async function idbSet(store, obj){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(obj);
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+async function idbGet(store, key){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = ()=> res(req.result || null);
+    req.onerror = ()=> rej(req.error);
+  });
+}
+async function idbDelete(store, key){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+async function idbGetMany(store, keys){
+  const out = [];
+  for (const k of keys) {
+    const v = await idbGet(store, k);
+    if (v) out.push(v);
+  }
+  return out;
+}
+
+/* ===== Panneau ===== */
+const panel = $('#panel');
+$('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
+$('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
+
+/* ===== Données (Z9/Z10) ===== */
+const coords = { "Z9": {x:1419,y:617}, "Z10":{x:1590,y:676} };
+const dechetsParZone = {
+  Z9:["Carton","Bois","Bac noir","Réhausses KC"],
+  Z10:["Aérosols","Bac noir","Non ferreux","Carton"]
+};
+const GROUPS = { "PRM6": ["Z9","Z10"] };
+const ZONES_ALL = ["Z9","Z10"];
+
+/* ===== UI : select zone ===== */
+let choicesZone;
+function initChoices(){
+  choicesZone = new Choices($('#zoneSelect'), {searchEnabled:false,shouldSort:false,itemSelectText:'',placeholderValue:'Choisir Z9 ou Z10'});
+  ZONES_ALL.forEach(z=>choicesZone.setChoices([{value:z,label:z}], 'value','label', false));
+
+  $('#zoneSelect').addEventListener('change', e=>{
+    updateInfoPanel(e.target.value);
+  });
+}
+function updateInfoPanel(zone){
+  const ul=$('#dechetList'); ul.innerHTML='';
+  (dechetsParZone[zone]||[]).sort().forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
+  if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
+}
+
+/* ===== Carte / zoom-pan minimal ===== */
+const mapContainer=$('#mapContainer');
+const mapImg=$('#mapImage');
+const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
+let base={s:1,ox:0,oy:0,iw:1,ih:1}; let view={z:1, panX:0, panY:0};
+let dragging=false, lx=0, ly=0;
+
+function computeFit(){
+  const r=mapContainer.getBoundingClientRect();
+  canvas.width=r.width; canvas.height=r.height;
+  base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
+  const s=Math.min(r.width/base.iw, r.height/base.ih);
+  base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
+}
+function applyLayout(){
+  const w=base.iw*base.s*view.z, h=base.ih*base.s*view.z;
+  mapImg.style.width=w+'px'; mapImg.style.height=h+'px';
+  mapImg.style.left=(base.ox+view.panX)+'px'; mapImg.style.top=(base.oy+view.panY)+'px';
+  $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
+}
+function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); }
+new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
+mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
+if (mapImg.complete) setTimeout(fitAndCenter,0);
+
+function imgToScreen(pt){ return {x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z)}; }
+function setZoom(z){ const MIN=1, MAX=4; view.z=Math.max(MIN,Math.min(MAX,z)); applyLayout(); drawAll(); }
+
+$('#zPlus').onclick  = ()=> setZoom(view.z+0.12);
+$('#zMinus').onclick = ()=> setZoom(view.z-0.12);
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyLayout(); drawAll(); };
+$('#btnFit').onclick = ()=> fitAndCenter();
+
+mapContainer.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId); });
+mapContainer.addEventListener('pointermove', e=>{ if(!dragging) return; view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLayout(); drawAll(); });
+mapContainer.addEventListener('pointerup', ()=> dragging=false);
+mapContainer.addEventListener('pointercancel', ()=> dragging=false);
+
+/* ===== Dessin des zones (click pour ouvrir fiche) ===== */
+const zonePoints = ZONES_ALL.map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
+const STORE_KEY='zoneReports.prm6.z9z10.v2xlsximg.idb';
+let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const isZoneDone=z=>!!reports[z];
+
+function drawAll(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(const zp of zonePoints){
+    const p=imgToScreen(zp);
+    ctx.beginPath(); ctx.arc(p.x,p.y,zp.r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle=isZoneDone(zp.zone)?'#10b981':'#ef4444'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fillStyle=isZoneDone(zp.zone)?'rgba(16,185,129,.6)':'rgba(239,68,68,.5)'; ctx.fill();
+  }
+}
+mapContainer.addEventListener('click', e=>{
+  const r=mapContainer.getBoundingClientRect();
+  const sx=e.clientX-r.left, sy=e.clientY-r.top;
+  let best=null,dmin=Infinity;
+  for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } }
+  if(best && dmin<=20){ openZoneForm(best); }
+});
+
+/* ===== FICHE ZONE ===== */
+const modal=$('#zoneModal'), backdrop=$('#modalBackdrop');
+const titleEl=$('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
+const checksContainers=()=>[...document.querySelectorAll('.checks')];
+let currentZone=null, gravite=false;
+
+let photosLocal=[]; // [{key, dataUrl, comment, ts}]
+const photosInput = document.getElementById('photosInput');
+const photosList  = document.getElementById('photosList');
+
+async function addFilesToGallery(fileList){
+  const files = Array.from(fileList||[]);
+  for(const f of files){
+    // (Option: compression/resize si besoin)
+    const dataUrl = await fileToDataURL(f);
+    photosLocal.push({ key:null, dataUrl, comment:'', ts: Date.now() });
+  }
+  renderPhotos();
+}
+function renderPhotos(){
+  if(!photosLocal.length){
+    photosList.classList.add('muted');
+    photosList.innerHTML = 'Aucune photo pour le moment';
+    return;
+  }
+  photosList.classList.remove('muted');
+  photosList.innerHTML = '';
+  photosLocal.forEach((p,idx)=>{
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `
+      <img src="${p.dataUrl}" alt="Écart ${idx+1}">
+      <textarea placeholder="Commentaire de la photo...">${p.comment||''}</textarea>
+      <div class="row photo-actions">
+        <span class="muted">#${idx+1} • ${new Date(p.ts).toLocaleString()}</span>
+        <div class="row">
+          <button type="button" class="btn secondary small" data-act="replace" data-idx="${idx}">Remplacer</button>
+          <button type="button" class="btn secondary small" data-act="delete" data-idx="${idx}">Supprimer</button>
+        </div>
+      </div>
+    `;
+    card.querySelector('textarea').addEventListener('input', ()=>{
+      photosLocal[idx].comment = card.querySelector('textarea').value;
+    });
+    card.querySelector('img').addEventListener('click',()=> window.open(p.dataUrl,'_blank'));
+    photosList.appendChild(card);
+  });
+}
+photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
+
+function fractionForIndex(idx){ return [1,0.75,0.5,0.25][idx] ?? 0; }
+function computeRawTotalAndDetail(){ let total=0, detail={};
+  checksContainers().forEach(c=>{ const max=parseFloat(c.dataset.max||'0'); const key=c.dataset.key; const idx=[...c.querySelectorAll('input')].findIndex(x=>x.checked); detail[key]=idx; if(idx>=0) total+=max*fractionForIndex(idx); });
+  return {raw:total, detail};
+}
+function adjustedScore(raw){ return gravite ? raw/5 : raw; }
+function updateTotalChip(){ const {raw}=computeRawTotalAndDetail(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
+
+const titleMap = {proprete:'Propreté',affiches:'Affiches',accessibilite:'Accessibilité',tri:'Tri',bennes:'Bennes',depart:'Départ'};
+
+async function openZoneForm(zone){
+  currentZone=zone; gravite=false; $('#btnGravite').classList.remove('on');
+  titleEl.textContent=`Fiche • ${zone}`;
+  subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
+  checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
+
+  photosInput.value=''; photosLocal=[];
+
+  const saved=reports[zone];
+  if(saved){
+    const idxByKey=saved.scores||{};
+    checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
+    if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
+    if (Array.isArray(saved.photoKeys) && saved.photoKeys.length){
+      const rows = await idbGetMany('photos', saved.photoKeys);
+      photosLocal = rows.map(r=>({ key:r.key, dataUrl:r.dataUrl, comment:r.comment||'', ts:r.ts||Date.now() }));
+    }
+  }
+
+  renderPhotos();
+  updateTotalChip();
+  modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); backdrop.style.display='block';
+}
+function closeZoneForm(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); backdrop.style.display='none'; }
+$('#btnCloseModal').addEventListener('click', closeZoneForm);
+backdrop.addEventListener('click', closeZoneForm);
+
+document.getElementById('btnGravite').addEventListener('click', ()=>{ gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
+document.addEventListener('change', e=>{
+  const cb=e.target;
+  if(cb.matches('.checks input[type="checkbox"]')){
+    const group=cb.closest('.checks'); const boxes=[...group.querySelectorAll('input')];
+    if(cb.checked){ boxes.forEach(b=>{ if(b!==cb) b.checked=false; }); }
+    updateTotalChip();
+  }
+});
+
+$('#btnSaveZone').addEventListener('click', async ()=>{
+  if(!currentZone) return;
+  const {raw,detail}=computeRawTotalAndDetail();
+  const totalAdj=Math.round(adjustedScore(raw));
+
+  // Sauvegarde des images dans IndexedDB (et mémorisation des clés)
+  const keys = [];
+  for (let i=0;i<photosLocal.length;i++){
+    let p = photosLocal[i];
+    if (!p.key) { // nouvelle image → créer une clé
+      p.key = `${currentZone}_${Date.now()}_${i}_${Math.random().toString(36).slice(2,7)}`;
+    }
+    keys.push(p.key);
+    await idbSet('photos', { key:p.key, zone:currentZone, ts:p.ts||Date.now(), dataUrl:p.dataUrl, comment:p.comment||'' });
+  }
+
+  reports[currentZone]={scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photoKeys: keys};
+  localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+  toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
+  closeZoneForm(); drawAll();
+});
+
+photosList.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx,10);
+  if(Number.isNaN(idx)) return;
+
+  if(btn.dataset.act === 'delete'){
+    const p = photosLocal[idx];
+    if (p?.key) { await idbDelete('photos', p.key); }
+    photosLocal.splice(idx,1);
+    renderPhotos();
+  }else if(btn.dataset.act === 'replace'){
+    const tmp = document.createElement('input');
+    tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
+    tmp.addEventListener('change', async ()=>{
+      if(tmp.files && tmp.files[0]){
+        const dataUrl = await fileToDataURL(tmp.files[0]);
+        const old = photosLocal[idx];
+        const key = old.key || `${currentZone}_${Date.now()}_${idx}_${Math.random().toString(36).slice(2,7)}`;
+        photosLocal[idx] = { key, dataUrl, comment:old.comment||'', ts: Date.now() };
+        await idbSet('photos', { key, zone:currentZone, ts:Date.now(), dataUrl, comment:old.comment||'' });
+        renderPhotos();
+      }
+    });
+    tmp.click();
+  }
+});
+
+/* ===== Synthèse (PRM6) ===== */
+const statsModal=$('#statsModal'), statsBackdrop=$('#statsBackdrop');
+$('#btnOpenStats').addEventListener('click', openStats);
+$('#btnCloseStats').addEventListener('click', closeStats);
+statsBackdrop.addEventListener('click', closeStats);
+
+function openStats(){ renderStats(); statsModal.classList.add('open'); statsModal.setAttribute('aria-hidden','false'); statsBackdrop.style.display='block'; }
+function closeStats(){ statsModal.classList.remove('open'); statsModal.setAttribute('aria-hidden','true'); statsBackdrop.style.display='none'; }
+
+function renderStats(){
+  const bars=$('#barsContainer'); bars.innerHTML='';
+  const rows=$('#zoneRows'); rows.innerHTML='';
+
+  const zs = GROUPS["PRM6"];
+  const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
+  const avg=done.length?(done.reduce((a,b)=>a+b,0)/done.length):0;
+
+  const allScores=Object.values(reports).map(r=>r.total);
+  const globalSum=allScores.reduce((a,b)=>a+b,0);
+  $('#statsChip').textContent=`PRM6 : ${Math.round(avg)}% • Total ${globalSum} pts • ${allScores.length} zone(s) notée(s)`;
+
+  // barre moyenne
+  const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='120px 1fr 54px'; row.style.gap='8px'; row.style.alignItems='center';
+  const label=document.createElement('div'); label.textContent='PRM6';
+  const bar=document.createElement('div'); bar.style.height='10px'; bar.style.background='#e5e7eb'; bar.style.borderRadius='999px'; bar.style.overflow='hidden';
+  const fill=document.createElement('span'); fill.style.display='block'; fill.style.height='100%'; fill.style.background='linear-gradient(90deg,#10b981,#3b82f6)'; fill.style.width=Math.max(0,Math.min(100,avg))+'%'; bar.appendChild(fill);
+  const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(done.length?Math.round(avg):0)+'%';
+  row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
+  const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${done.length}/${zs.length} zone(s) notée(s)`;
+  bars.appendChild(row); bars.appendChild(meta);
+
+  // tableau
+  ZONES_ALL.forEach(z=>{
+    const r=reports[z];
+    const div=document.createElement('div'); div.style.display='grid'; div.style.gridTemplateColumns='80px 120px 80px 1fr 80px'; div.style.gap='8px'; div.style.padding='8px 10px'; div.style.borderTop='1px solid var(--line)';
+    const c1=document.createElement('div'); c1.textContent=z;
+    const c2=document.createElement('div'); c2.textContent='PRM6';
+    const c3=document.createElement('div'); c3.textContent=(r && r.photos ? r.photos.length : (r && r.photoKeys ? r.photoKeys.length : 0));
+    const c4=document.createElement('div'); c4.textContent=''; // commentaire court (option)
+    const c5=document.createElement('div'); c5.style.textAlign='right'; c5.textContent=(r?`${r.total} / 100${r.gravite?'*':''}`:'—');
+    div.appendChild(c1); div.appendChild(c2); div.appendChild(c3); div.appendChild(c4); div.appendChild(c5);
+    rows.appendChild(div);
+  });
+}
+
+/* ===== Export XLSX (avec images intégrées) ===== */
+document.getElementById('btnExportXlsx').addEventListener('click', exportXlsxWithImages);
+
+function idxToPct(idx){ return (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0); }
+function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx)) : 0; }
+
+async function buildExportAsync(){
+  const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
+  const rows=[];      // par zone
+  const photosRows=[]; // {Zone,Groupe,Index,Date,Commentaire,DataUrl}
+
+  for (const z of ZONES_ALL){
+    const r=reports[z]; if(!r) continue;
+    const s=r.scores||{};
+    rows.push({
+      Zone:z,
+      Groupe:'PRM6',
+      Propreté:scoreFromIdx(criteriaMax.proprete, s.proprete ?? -1),
+      Affiches:scoreFromIdx(criteriaMax.affiches, s.affiches ?? -1),
+      Accessibilité:scoreFromIdx(criteriaMax.accessibilite, s.accessibilite ?? -1),
+      Tri:scoreFromIdx(criteriaMax.tri, s.tri ?? -1),
+      Bennes:scoreFromIdx(criteriaMax.bennes, s.bennes ?? -1),
+      Départ:scoreFromIdx(criteriaMax.depart, s.depart ?? -1),
+      Gravité:r.gravite?'Oui':'Non',
+      Total:r.total,
+      NbPhotos:Array.isArray(r.photoKeys) ? r.photoKeys.length : 0,
+      Date: r.savedAt ? new Date(r.savedAt).toLocaleString() : ''
+    });
+
+    if (Array.isArray(r.photoKeys) && r.photoKeys.length){
+      const rowsIdb = await idbGetMany('photos', r.photoKeys);
+      rowsIdb.forEach((p,i)=>{
+        photosRows.push({
+          Zone:z,
+          Groupe:'PRM6',
+          Index:i+1,
+          Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(),
+          Commentaire:p.comment||'',
+          DataUrl:p.dataUrl || ''
+        });
+      });
+    }
+  }
+  return {rows, photosRows};
+}
+
+async function exportXlsxWithImages(){
+  const {rows, photosRows} = await buildExportAsync();
+  if(!rows.length){ toast('Aucune fiche à exporter.'); return; }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'TICP • PRM6';
+  wb.created = new Date();
+
+  // Résumé
+  const wsSummary = wb.addWorksheet('Résumé', {views:[{state:'frozen', ySplit:1}]});
+  const headers1 = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','NbPhotos','Date'];
+  wsSummary.addRow(headers1);
+  wsSummary.getRow(1).font = {bold:true};
+  wsSummary.columns = [
+    {header:'Zone', key:'Zone', width:6},
+    {header:'Groupe', key:'Groupe', width:8},
+    {header:'Propreté', key:'Propreté', width:10},
+    {header:'Affiches', key:'Affiches', width:9},
+    {header:'Accessibilité', key:'Accessibilité', width:13},
+    {header:'Tri', key:'Tri', width:6},
+    {header:'Bennes', key:'Bennes', width:7},
+    {header:'Départ', key:'Départ', width:7},
+    {header:'Gravité', key:'Gravité', width:8},
+    {header:'Total', key:'Total', width:7},
+    {header:'NbPhotos', key:'NbPhotos', width:9},
+    {header:'Date', key:'Date', width:20}
+  ];
+  rows.forEach(r=> wsSummary.addRow(r));
+  wsSummary.getRow(1).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF3F4F6'}};
+  wsSummary.getRow(1).border = {bottom:{style:'thin', color:{argb:'FFE5E7EB'}}};
+
+  // Photos
+  const wsPhotos = wb.addWorksheet('Photos', {properties:{defaultRowHeight:110}, views:[{state:'frozen', ySplit:1}]});
+  const headers2 = ['Zone','Groupe','#','Date','Commentaire','Photo'];
+  wsPhotos.addRow(headers2);
+  wsPhotos.getRow(1).font = {bold:true};
+  wsPhotos.columns = [
+    {header:'Zone', key:'Zone', width:6},
+    {header:'Groupe', key:'Groupe', width:8},
+    {header:'#', key:'Index', width:5},
+    {header:'Date', key:'Date', width:20},
+    {header:'Commentaire', key:'Commentaire', width:50},
+    {header:'Photo', key:'_photo', width:32}
+  ];
+
+  for(let i=0;i<photosRows.length;i++){
+    const p = photosRows[i];
+    const row = wsPhotos.addRow({ Zone:p.Zone, Groupe:p.Groupe, Index:p.Index, Date:p.Date, Commentaire:p.Commentaire });
+    row.alignment = {vertical:'middle', wrapText:true};
+
+    if(p.DataUrl){
+      const info = dataUrlInfo(p.DataUrl);
+      const imageId = wb.addImage({ base64: p.DataUrl.split(',')[1], extension: info.ext === 'jpg' ? 'jpeg' : info.ext });
+      const r = row.number;
+      wsPhotos.addImage(imageId, { tl: { col: 5.1, row: r-0.9 }, ext: { width: 220, height: 140 } });
+      wsPhotos.getRow(r).height = 110;
+    }
+  }
+
+  const dateStr = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  const filename = `tournee-dechets_PRM6_Z9-Z10_${dateStr}.xlsx`;
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), filename);
+  toast('Export XLSX (avec images) généré.');
+}
+
+/* ===== Réinitialiser ===== */
+document.getElementById('btnResetAll').addEventListener('click', ()=>{
+  if(!confirm('Confirmer la réinitialisation ?\nToutes les fiches enregistrées (Z9/Z10) seront supprimées.')) return;
+  localStorage.removeItem(STORE_KEY);
+  reports = {};
+  toast('Données réinitialisées.');
+  drawAll();
+});
+
+/* ===== Init ===== */
+function init(){ initChoices(); fitAndCenter(); }
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
