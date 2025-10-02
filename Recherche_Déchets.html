@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TICP • Localisation Déchets (Full Screen)</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+
+  /* Barre du haut */
+  .app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  header.appbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.78));border-bottom:1px solid var(--line);backdrop-filter:saturate(1.2) blur(6px)}
+  .bar{max-width:1600px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+  .logo{width:10px;height:28px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 6px rgba(230,0,126,.08)}
+  .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#eef2ff;color:#3730a3}
+  .btn{appearance:none;border:none;border-radius:10px;cursor:pointer;padding:10px 14px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 8px 22px rgba(230,0,126,.22);transition:.2s}
+  .btn:hover{background:var(--brand-700);transform:translateY(-1px)}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
+  .btn.small{padding:8px 10px;border-radius:8px;font-size:12px}
+
+  /* Disposition principale : deux états
+     - mode "full-map": panneau en tiroir (hidden), carte pleine largeur/hauteur
+     - mode "split": panneau visible à gauche (mobilité) */
+  .layout{display:grid;grid-template-columns:1fr;gap:0;max-width:none;margin:0}
+  /* panneau latéral tiroir */
+  .drawer{
+    position:fixed; inset:64px 0 0 auto; /* sous la barre */
+    width:380px; max-width:92vw;
+    background:var(--panel); border-left:1px solid var(--line);
+    box-shadow:-20px 0 50px rgba(2,8,23,.15);
+    transform:translateX(100%); transition:transform .25s ease;
+    z-index:40; display:flex; flex-direction:column;
+  }
+  .drawer.open{ transform:translateX(0) }
+  .drawer header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .drawer .content{padding:12px 14px;overflow:auto}
+  .grid{display:grid;gap:12px}
+  .two{grid-template-columns:1fr 1fr}
+  .field{display:grid;gap:6px}
+  .field label{font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  select,.choices__inner{width:100%}
+
+  /* Carte plein écran */
+  .mapwrap{
+    position:relative;
+    height:calc(100vh - 64px); /* toute la fenêtre sous la barre */
+    width:100%;
+    background:#0b1020;
+  }
+  .stage{position:absolute;inset:0;transform-origin:top left}
+  .mapimg{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none}
+  canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}
+
+  /* HUD */
+  .hud{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
+  .card{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:170px;color:#111827}
+  .kpi{font-size:12px;color:#6b7280;display:flex;gap:6px;align-items:center}
+  .kpi strong{font-size:13px;color:#111827}
+
+  /* Toolbar flottante (zoom) */
+  .toolbox{
+    position:absolute;left:12px;top:12px;z-index:5;display:flex;gap:8px;flex-wrap:wrap
+  }
+
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999}
+  .toast.show{opacity:1}
+
+  /* Sur petits écrans : panneau visible en page (au-dessus de la carte) */
+  @media (max-width:1024px){
+    .drawer{position:static;transform:none;box-shadow:none;border-left:none;border-top:1px solid var(--line);height:auto}
+    .drawer header .close{display:none}
+    .layout{grid-template-columns:1fr}
+    .mapwrap{height:70vh;min-height:520px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Barre du haut -->
+  <header class="appbar">
+    <div class="bar">
+      <div class="brand">
+        <div class="logo"></div>
+        TICP • Localisation des déchets
+      </div>
+      <div class="row">
+        <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
+        <span class="chip" id="chipGps">GPS: off</span>
+        <span class="chip" id="chipCompass">Boussole: off</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Carte plein écran -->
+    <section class="mapwrap" id="mapContainer">
+      <div class="stage" id="stage">
+        <img id="mapImage" class="mapimg" src="1.png" alt="Plan du site" draggable="false"/>
+        <canvas id="overlay"></canvas>
+
+        <!-- Toolbar zoom -->
+        <div class="toolbox">
+          <button class="btn secondary small" id="zMinus">–</button>
+          <button class="btn secondary small" id="zReset">100%</button>
+          <button class="btn secondary small" id="zPlus">+</button>
+          <button class="btn secondary small" id="btnFit">Ajuster</button>
+        </div>
+
+        <!-- HUD infos -->
+        <div class="hud">
+          <div class="card">
+            <div class="kpi">Position <strong id="kpiPos">—</strong></div>
+            <div class="kpi">Cap <strong id="kpiHead">—</strong></div>
+            <div class="kpi">Zoom <strong id="kpiZoom">100%</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panneau tiroir -->
+    <aside class="drawer" id="drawer">
+      <header>
+        Navigation & Recherche
+        <button class="btn secondary small close" id="btnClosePanel">Fermer</button>
+      </header>
+      <div class="content grid">
+        <div class="field">
+          <label>Origine</label>
+          <div class="row">
+            <button class="btn small" id="btnGPS">Activer GPS + Boussole</button>
+            <button class="btn secondary small" id="btnPick">Choisir sur le plan</button>
+            <button class="btn secondary small" id="btnCalibrate">Calibrer boussole</button>
+            <button class="btn secondary small" id="btnNudgeMinus">-5°</button>
+            <button class="btn secondary small" id="btnNudgePlus">+5°</button>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label for="zoneSelect">Emplacement</label>
+            <select id="zoneSelect" placeholder="Rechercher un emplacement"></select>
+          </div>
+          <div class="field">
+            <label for="dechetSelect">Déchet</label>
+            <select id="dechetSelect" placeholder="Rechercher un déchet"></select>
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="btn" id="btnOK">Tracer</button>
+          <button class="btn secondary" id="btnClear">Effacer</button>
+        </div>
+
+        <div class="field">
+          <label>Déchets dans la zone</label>
+          <ul id="dechetList" style="padding-left:18px;margin:6px 0 0 0"><li>Aucune zone sélectionnée</li></ul>
+        </div>
+
+        <p style="color:#6b7280;margin:6px 0 0 0">
+          • L’image est ajustée <b>en entier</b> au chargement (Ajuster pour y revenir).<br>
+          • Molette = zoom, glisser = déplacer. Aucun itinéraire automatique.
+        </p>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script>
+"use strict";
+
+/* ====== Helpers ====== */
+const $ = (q)=>document.querySelector(q);
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
+
+/* ====== Panneau tiroir ====== */
+const drawer = $('#drawer');
+$('#btnTogglePanel').addEventListener('click', ()=> drawer.classList.toggle('open'));
+$('#btnClosePanel').addEventListener('click', ()=> drawer.classList.remove('open'));
+
+/* ====== Données ====== */
+const coords = {
+  "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+  "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+  "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+  "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+  "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+  "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+  "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+  "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+  "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+  "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+  "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+  "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+  "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+  "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+  "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+  "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+  "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+  "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+  "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+  "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+  "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+  "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+  "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
+  "Bureau Administratif":{x:1524,y:152}
+};
+
+const dechetsParZone = {
+  Z1:["Bois","Carton","Bac noir","Plastique"],
+  Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
+  Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
+  Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
+  Z5:["Bac noir","Bac jaune","Carton","Cartouche d'encre"],
+  Z6:["Bac noir","Bac jaune"], Z7:["Bac noir","Plastique"],
+  Z8:["Bois","Carton","Ferreux","Polystyrène","Plastique","Bac jaune","Bac noir"],
+  Z9:["Carton","Bois","Bac noir","Réhausses KC"],
+  Z10:["Aérosols","Bac noir","Non ferreux","Carton"],
+  Z11:["Carton","Bois","Polystyrène","Plastique","DEEE","Non ferreux","Réhausses KC","Aérosols","Pélican","Bac jaune","Ferreux","Caoutchouc","Geobox Déchets dangereux"],
+  Z12:["Bac noir","Bac jaune"],
+  Z13:["Piles et Accumulateur","Geobox Déchets dangereux","Aérosols","Ferreux","Cuivre","Non ferreux","DEEE","Caoutchouc","Huile usagées"],
+  Z14:["Aérosols","Ferreux","Non ferreux","Bac noir","Bac jaune","Geobox Déchets dangereux","Carton","Bois","Réhausses KC"],
+  Z15:["DEEE","Carton","Non ferreux","Ferreux","Plastique","Polystyrène","Bac noir"],
+  Z16:["Piles et Accumulateur","Cartouche d'encre","Vêtements usagées","Bac noir","Aérosols","DEEE","Carton","Bac jaune"],
+  Z17:["DEEE","Aérosols","Bac noir","Geobox Déchets dangereux","Huile usagées"],
+  Z18:["Bois","Carton","Ferreux","Non ferreux","Bac noir","Bac jaune","Verre","Déchets non dangereux"],
+  Z19:["Bac noir"],
+  Z20:["Ferreux","Non ferreux","Geobox Déchets dangereux","Bois","Carton","Plastique","Bac plomb"],
+  Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
+  Z22:["Geobox Déchets dangereux","Fût peinture"],
+  Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
+  Z24:["Caoutchouc","Pélican","Verre"],
+  Z25:["Geobox Déchets dangereux"], Z26:["Carton","Bois"],
+  Z27:["Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","Aérosols"],
+  Z28:["Ferreux","Bac noir","Fût filtres","Huile usagées"],
+  Z29:["Geobox Déchets dangereux"],
+  Z30:["Geobox Déchets dangereux","Pélican","Bac jaune","Carton","Bois","DEEE","Non ferreux","Ferreux","Aérosols","Amiante"],
+  Z31:["Bac noir","Bac jaune","Amiante"],
+  Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
+  Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
+};
+
+/* ====== UI : selects & liste ====== */
+let choicesZone, choicesDechet;
+function initChoices(){
+  choicesZone   = new Choices($('#zoneSelect'),   {searchEnabled:true,shouldSort:false,itemSelectText:'',placeholderValue:'Rechercher un emplacement…'});
+  choicesDechet = new Choices($('#dechetSelect'), {searchEnabled:true,shouldSort:true, itemSelectText:'',placeholderValue:'Rechercher un déchet…'});
+
+  Object.keys(coords).filter(k=>!k.startsWith('Z')).forEach(k=>{
+    choicesZone.setChoices([{value:k,label:k}], 'value','label', false);
+  });
+  const allTypes=[...new Set(Object.values(dechetsParZone).flat())].sort();
+  allTypes.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+
+  $('#zoneSelect').addEventListener('change', e=>{
+    updateInfoPanel(e.target.value);
+    const types=dechetsParZone[e.target.value]||allTypes;
+    choicesDechet.clearChoices();
+    types.forEach(t=>choicesDechet.setChoices([{value:t,label:t}], 'value','label', false));
+  });
+}
+function updateInfoPanel(zone){
+  const ul=$('#dechetList'); ul.innerHTML='';
+  (dechetsParZone[zone]||[]).sort().forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
+  if(!(dechetsParZone[zone]||[]).length) ul.innerHTML='<li>Aucun déchet</li>';
+}
+
+/* ====== Carte : fit contain + zoom/pan ====== */
+const mapContainer=$('#mapContainer');
+const stage=$('#stage');
+const mapImg=$('#mapImage');
+const canvas=$('#overlay'); const ctx=canvas.getContext('2d');
+
+let base={s:1,ox:0,oy:0,iw:1,ih:1};
+let view={z:1, panX:0, panY:0};
+let dragging=false, lx=0, ly=0;
+
+function computeFit(){
+  const r=mapContainer.getBoundingClientRect();
+  canvas.width=r.width; canvas.height=r.height;
+  base.iw=mapImg.naturalWidth||1; base.ih=mapImg.naturalHeight||1;
+  const s=Math.min(r.width/base.iw, r.height/base.ih); // ENTIEREMENT visible
+  base.s=s; base.ox=(r.width-base.iw*s)/2; base.oy=(r.height-base.ih*s)/2;
+}
+function applyTransform(){
+  stage.style.transform=`translate(${base.ox+view.panX}px,${base.oy+view.panY}px) scale(${base.s*view.z})`;
+  stage.style.transformOrigin='top left';
+  mapImg.style.width=base.iw+'px'; mapImg.style.height=base.ih+'px';
+  $('#kpiZoom').textContent=Math.round(view.z*100)+'%';
+}
+function fitAndCenter(){ computeFit(); view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); }
+
+new ResizeObserver(()=>{ fitAndCenter(); }).observe(mapContainer);
+mapImg.addEventListener('load', ()=>{ fitAndCenter(); });
+if (mapImg.complete) setTimeout(fitAndCenter,0);
+
+function imgToScreen(pt){ return { x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z) }; }
+function screenToImg(x,y){ return { x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z) }; }
+
+function setZoom(z,cx,cy){
+  const MIN=0.1, MAX=4;
+  z=Math.max(MIN,Math.min(MAX,z));
+  if(typeof cx==='number' && typeof cy==='number'){
+    const before=screenToImg(cx,cy);
+    view.z=z; applyTransform();
+    const after=imgToScreen(before);
+    view.panX += (cx - after.x); view.panY += (cy - after.y);
+  } else { view.z=z; }
+  applyTransform(); drawAll();
+}
+$('#zPlus').onclick  = ()=> setZoom(view.z+0.12, canvas.width/2, canvas.height/2);
+$('#zMinus').onclick = ()=> setZoom(view.z-0.12, canvas.width/2, canvas.height/2);
+$('#zReset').onclick = ()=> { view.z=1; view.panX=0; view.panY=0; applyTransform(); drawAll(); };
+$('#btnFit').onclick = ()=> fitAndCenter();
+
+mapContainer.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const rect=mapContainer.getBoundingClientRect();
+  setZoom(view.z+(e.deltaY>0?-0.12:0.12), e.clientX-rect.left, e.clientY-rect.top);
+},{passive:false});
+
+mapContainer.addEventListener('pointerdown', e=>{
+  dragging=true; lx=e.clientX; ly=e.clientY; mapContainer.setPointerCapture(e.pointerId);
+});
+mapContainer.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  view.panX += e.clientX-lx; view.panY += e.clientY-ly; lx=e.clientX; ly=e.clientY;
+  applyTransform(); drawAll();
+});
+mapContainer.addEventListener('pointerup', ()=> dragging=false);
+mapContainer.addEventListener('pointercancel', ()=> dragging=false);
+
+/* ====== Dessin ====== */
+let route=null;        // {from:{x,y}, to:{x,y}}
+let hotspots=[];       // [{x,y,r,zone}]
+let userPos=null;      // {x,y}
+let headingDegRaw=null, headingSource='unknown';
+let compassOffsetDeg = parseFloat(localStorage.getItem('compassOffsetDeg') || '0');
+
+function drawAll(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(route){
+    const p0=imgToScreen(route.from), p1=imgToScreen(route.to);
+    ctx.save(); ctx.setLineDash([12,6]); ctx.lineWidth=4; ctx.strokeStyle='rgba(37,99,235,.85)';
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); ctx.restore();
+    const rad=8+4*Math.abs(Math.sin(performance.now()/350));
+    ctx.beginPath(); ctx.arc(p0.x,p0.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p1.x,p1.y,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#10b981'; ctx.stroke();
+  }
+
+  for(const h of hotspots){
+    const p=imgToScreen(h);
+    ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke();
+  }
+
+  if(userPos){
+    const p=imgToScreen(userPos);
+    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='rgba(16,185,129,.9)'; ctx.fill();
+    ctx.strokeStyle='#065f46'; ctx.stroke();
+    const angRad = normalizedHeadingRad();
+    if(angRad!=null){
+      const ang=angRad - Math.PI/2;
+      const len=80;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(-7,-6); ctx.lineTo(7,-6); ctx.closePath();
+      ctx.fillStyle='#2563eb'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,-Math.PI/6,Math.PI/6); ctx.closePath();
+      ctx.fillStyle='rgba(37,99,235,.16)'; ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+(function loop(){ requestAnimationFrame(loop); drawAll(); })();
+
+/* ====== Tracer / Effacer / Pick ====== */
+$('#btnOK').addEventListener('click', ()=>{
+  const dep=$('#zoneSelect').value;
+  const waste=$('#dechetSelect').value.toLowerCase().trim();
+
+  let origin=null;
+  if(dep && coords[dep]) origin=coords[dep];
+  if(!origin && userPos) origin=userPos;
+  if(!origin){ toast('Sélectionnez un emplacement ou activez le GPS.'); return; }
+
+  let best=null,dmin=Infinity;
+  for(const z in dechetsParZone){
+    if(dechetsParZone[z].some(x=>x.toLowerCase()===waste)){
+      const d=Math.hypot(coords[z].x-origin.x, coords[z].y-origin.y);
+      if(d<dmin){ dmin=d; best=z; }
+    }
+  }
+  if(!best){ toast('Aucune zone pour ce déchet.'); return; }
+
+  updateInfoPanel(best);
+  route={ from:{...origin}, to:{x:coords[best].x, y:coords[best].y} };
+  hotspots=[{ x:coords[best].x, y:coords[best].y, r:12, zone:best }];
+});
+$('#btnClear').addEventListener('click', ()=>{ route=null; hotspots=[]; drawAll(); });
+
+let pick=false;
+$('#btnPick').addEventListener('click', ()=>{ pick=!pick; toast(pick?'Cliquez sur le plan pour choisir l’emplacement':'Sélection par clic désactivée'); });
+mapContainer.addEventListener('click', e=>{
+  if(!pick) return;
+  const r=mapContainer.getBoundingClientRect();
+  const imgPt=screenToImg(e.clientX-r.left, e.clientY-r.top);
+  let best=null,dmin=Infinity;
+  Object.keys(coords).forEach(name=>{
+    if(!name.startsWith('Z')){
+      const c=coords[name], d=Math.hypot(c.x-imgPt.x, c.y-imgPt.y);
+      if(d<dmin){ dmin=d; best=name; }
+    }
+  });
+  if(best){
+    choicesZone.setChoiceByValue(best);
+    $('#zoneSelect').dispatchEvent(new Event('change'));
+    pick=false;
+  }
+});
+
+/* ====== GPS + Boussole ====== */
+/* Projection GPS EXACTEMENT comme l’original (barycentrique 3 points) */
+const calibration = [
+  {lat: 45.193611, lon: 0.705167, x: coords["Z12"].x,   y: coords["Z12"].y}, // Z12
+  {lat: 45.192694, lon: 0.706000, x: coords["Z5"].x,    y: coords["Z5"].y},  // Z5
+  {lat: 45.192194, lon: 0.706083, x: coords["MABOR"].x, y: coords["MABOR"].y} // MABOR
+];
+function gpsToPixel(lat, lon){
+  const [P0, P1, P2] = calibration;
+  const lat0 = P0.lat, lon0 = P0.lon;
+  const avgLat = (P0.lat + P1.lat + P2.lat)/3 * Math.PI/180;
+  const kx = 111320 * Math.cos(avgLat), ky = 111320;
+  function bary(px, py, x0, y0, x1, y1, x2, y2){
+    const det=(y1-y2)*(x0-x2)+(x2-x1)*(y0-y2);
+    const u=((y1-y2)*(px-x2)+(x2-x1)*(py-y2))/det;
+    const v=((y2-y0)*(px-x2)+(x0-x2)*(py-y2))/det;
+    const w=1-u-v; return [u,v,w];
+  }
+  const px=(lon-lon0)*kx, py=(lat-lat0)*ky;
+  const x1=(P1.lon-lon0)*kx, y1=(P1.lat-lat0)*ky;
+  const x2=(P2.lon-lon0)*kx, y2=(P2.lat-lat0)*ky;
+  const [u,v,w]=bary(px,py,0,0,x1,y1,x2,y2);
+  return {x: u*P0.x+v*P1.x+w*P2.x, y: u*P0.y+v*P1.y+w*P2.y};
+}
+
+/* Boussole normalisée + calibration optionnelle */
+function screenOrientationAngle(){
+  const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);
+  return ((a%360)+360)%360;
+}
+function normalizedHeadingDeg(){
+  if (headingDegRaw==null) return null;
+  let h;
+  if (headingSource==='ios'){ h=headingDegRaw; }
+  else { h=360-headingDegRaw; h+=screenOrientationAngle(); }
+  h+=compassOffsetDeg; return ((h%360)+360)%360;
+}
+function normalizedHeadingRad(){ const d=normalizedHeadingDeg(); return d==null?null:d*Math.PI/180; }
+function handleOrient(e){
+  if (typeof e.webkitCompassHeading==='number'){ headingDegRaw=e.webkitCompassHeading; headingSource='ios'; }
+  else if (typeof e.alpha==='number'){ headingDegRaw=e.alpha; headingSource='alpha'; }
+  const h=normalizedHeadingDeg();
+  $('#chipCompass').textContent = h==null ? 'Boussole: off' : `Boussole: on (${Math.round(compassOffsetDeg)}°)`;
+  $('#kpiHead').textContent = h==null ? '—' : (Math.round(h)+'°');
+}
+function calibrateCompassToZero(){
+  const h=normalizedHeadingDeg() ?? headingDegRaw;
+  if(h==null){ toast('Boussole indisponible, bougez le téléphone puis réessayez.'); return; }
+  compassOffsetDeg = ((-h)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg));
+  toast(`Calibration ok (${Math.round(compassOffsetDeg)}°)`);
+}
+function nudgeOffset(d){ compassOffsetDeg=((compassOffsetDeg+d)%360+360)%360; localStorage.setItem('compassOffsetDeg', String(compassOffsetDeg)); }
+$('#btnCalibrate').addEventListener('click', calibrateCompassToZero);
+$('#btnNudgeMinus').addEventListener('click', ()=>{ nudgeOffset(-5); toast('Offset -5°'); });
+$('#btnNudgePlus').addEventListener('click', ()=>{ nudgeOffset(+5); toast('Offset +5°'); });
+
+let watchId=null, compassEnabled=false;
+$('#btnGPS').addEventListener('click', ()=>{
+  if(!navigator.geolocation){ toast('GPS non disponible'); return; }
+  if(watchId==null){
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const p=gpsToPixel(pos.coords.latitude, pos.coords.longitude);
+      userPos=p; $('#kpiPos').textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
+      $('#chipGps').textContent='GPS: on';
+    }, err=>toast('Erreur GPS : '+err.message), {enableHighAccuracy:true});
+  }
+  if(!compassEnabled){
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted'){ window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true; }
+        else { $('#chipCompass').textContent='Boussole: refusée'; }
+      }).catch(()=> toast('Boussole indisponible'));
+    }else{
+      window.addEventListener('deviceorientation', handleOrient, true); compassEnabled=true;
+    }
+    if (screen.orientation && typeof screen.orientation.addEventListener==='function'){
+      screen.orientation.addEventListener('change', handleOrient);
+    } else { window.addEventListener('orientationchange', handleOrient); }
+  }
+
+  // Ajoute "Ma localisation"
+  const sel=$('#zoneSelect');
+  if (![...sel.options].some(o=>o.value==='Ma localisation')){
+    sel.prepend(new Option('Ma localisation','Ma localisation',true,true));
+  }
+
+  // Ouvre automatiquement le panneau après activation (utile sur mobile)
+  if (window.matchMedia('(max-width:1024px)').matches) drawer.classList.add('open');
+});
+
+/* ====== Init ====== */
+function init(){
+  initChoices();
+  fitAndCenter(); // image entière visible immédiatement
+  // Sur desktop, le panneau reste fermé par défaut → carte plein écran.
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
