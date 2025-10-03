@@ -399,8 +399,19 @@ mapContainer.addEventListener('pointercancel', ()=> dragging=false);
 
 /* ===== Dessin des zones (click pour ouvrir fiche) ===== */
 const zonePoints = ZONES_ALL.map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-const STORE_KEY='zoneReports.prm6.z9z10.v2xlsximg.idb';
-let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const STORE_KEY='ticp.zoneReports.shared.v1';
+const LEGACY_KEYS=['zoneReports.v3','zoneReports.prm6.z9z10.v2xlsximg.idb'];
+let reports={};
+try{
+  let merged={};
+  for(const k of LEGACY_KEYS){
+    try{ const o=JSON.parse(localStorage.getItem(k)||'{}')||{}; merged={...merged,...o}; }catch{}
+  }
+  const cur=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{};
+  merged={...merged,...cur};
+  localStorage.setItem(STORE_KEY, JSON.stringify(merged));
+  reports=merged;
+}catch{ reports={}; }
 const isZoneDone=z=>!!reports[z];
 
 function drawAll(){
@@ -501,10 +512,17 @@ function setChecksFromDetail(detail){
   updateTotalChip();
 }
 
-function collectPhotosKeys(zone){ return (reports[zone]?.photos||[]).map(p=>p.key).filter(Boolean); }
+function collectPhotosKeys(zone){ return (reports[zone]?.photosKeys||[]).map(p=>p.key).filter(Boolean); }
 async function loadPhotosForZone(zone){
   const keys = collectPhotosKeys(zone);
-  if(!keys.length){ photosLocal=[]; renderPhotos(); return; }
+  if(!keys.length){
+    // fallback: si inline dispo (depuis TICP)
+    const inline = (reports[zone]?.photos||[]).filter(p=>p?.dataUrl?.startsWith?.('data:'));
+    photosLocal = inline.map(p=>({dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now()}));
+    renderPhotos();
+    if(inline.length) return;
+    return;
+  }
   const recs = await idbGetMany('photos', keys);
   photosLocal = recs.map(r=>({key:r.key, dataUrl:r.dataUrl, comment:r.comment||'', ts:r.ts||Date.now()}));
   renderPhotos();
@@ -540,7 +558,8 @@ $('#btnSaveZone').addEventListener('click', async ()=>{
     await idbSet('photos', { key, zone: currentZone, ts: p.ts||Date.now(), dataUrl: p.dataUrl, comment: p.comment||'' });
     photosWithKeys.push({ key });
   }
-  reports[currentZone].photos = photosWithKeys;
+  reports[currentZone].photosKeys = photosWithKeys;
+  reports[currentZone].photos = photosLocal.map(p=>({dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now()}));
   localStorage.setItem(STORE_KEY, JSON.stringify(reports));
   toast(`Zone ${currentZone} enregistrée (${score}/100)`);
   drawAll();
@@ -561,7 +580,7 @@ function renderStats(){
   let done=0;
   ZONES_ALL.forEach(z=>{
     const r = reports[z];
-    const photosCount = (r?.photos||[]).length;
+    const photosCount = Array.isArray(r?.photos) && r.photos[0]?.dataUrl ? r.photos.length : (r?.photosKeys||[]).length;
     if(r) done++;
     const div=document.createElement('div');
     div.className='row';
@@ -632,6 +651,15 @@ $('#btnExportXlsx').addEventListener('click', async ()=>{
   saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), name);
 });
 
+
+/* ===== Sync inter-onglets ===== */
+window.addEventListener('storage', (e)=>{
+  if(e.key===STORE_KEY){
+    try{ reports = JSON.parse(e.newValue||'{}')||{} }catch{ reports={} }
+    drawAll();
+    try{ renderStats(); }catch{}
+  }
+});
 /* ===== Boot ===== */
 function boot(){ initChoices(); updateInfoPanel('Z9'); drawAll(); }
 window.addEventListener('load', boot);
