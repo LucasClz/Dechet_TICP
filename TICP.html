@@ -13,6 +13,15 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 
 <style>
+
+  .crit .checks{display:flex;gap:8px}
+  .checks input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
+  .checks.labeled{display:grid;grid-template-rows:auto auto;gap:6px}
+  .checks.labeled .letters{display:grid;grid-template-columns:repeat(4, minmax(18px,auto));gap:8px;align-items:end}
+  .checks.labeled .letters span{display:block;text-align:center;font-weight:700;font-size:12px;color:#374151}
+  .checks.labeled .boxes{display:grid;grid-template-columns:repeat(4, minmax(18px,auto));gap:8px;align-items:start}
+
+
   :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb}
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -111,6 +120,65 @@
   .lightbox img{max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 0 20px rgba(0,0,0,.6);transform-origin:center}
   .lightbox .toolbar{position:absolute;top:16px;left:16px;display:flex;gap:8px}
   .lightbox .close{position:absolute;top:16px;right:16px}
+</style>
+<script>
+
+/* ===== IDB (photos) ===== */
+const DB_NAME = 'ticp-prm6';
+const DB_VER  = 1;
+let dbPromise = null;
+function openDB(){
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains('photos')){
+        db.createObjectStore('photos', { keyPath: 'key' }); // { key, zone, ts, dataUrl, comment }
+      }
+    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror  = ()=> reject(req.error);
+  });
+  return dbPromise;
+}
+async function idbSet(store, obj){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(obj);
+    tx.oncomplete = ()=> res();
+    tx.onerror   = ()=> rej(tx.error);
+  });
+}
+async function idbGet(store, key){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store, 'readonly');
+    const rq = tx.objectStore(store).get(key);
+    rq.onsuccess = ()=> res(rq.result||null);
+    rq.onerror   = ()=> rej(rq.error);
+  });
+}
+async function idbGetMany(store, keys){
+  const out=[]; for(const k of keys){ const v=await idbGet(store,k); if(v) out.push(v); } return out;
+}
+
+</script>
+<style>
+/* === SAMI (copié de PRM6) === */
+  .checks.labeled{display:grid;grid-template-rows:auto auto;gap:6px}
+  .checks.labeled .letters{display:grid;grid-template-columns:repeat(4, minmax(18px,auto));gap:8px;align-items:end}
+  .checks.labeled .letters span{display:block;text-align:center;font-weight:700;font-size:12px;color:#374151}
+  .checks.labeled .boxes{display:grid;grid-template-columns:repeat(4, minmax(18px,auto));gap:8px;align-items:start}
+
+  /* Galerie photos */
+  .photos-grid{display:grid;gap:10px;margin-top:6px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .photo-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;display:grid;gap:8px}
+  .photo-card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f3f4f6;cursor:pointer;transition:transform .2s}
+  .photo-card img:hover{transform:scale(1.05)}
+  .photo-card textarea{width:100%;min-height:58px;resize:vertical}
+  .photo-card .row{justify-content:space-between}
 </style>
 </head>
 <body>
@@ -213,28 +281,28 @@
   </header>
   <div class="content grid" id="formContainer">
     <div class="crit"><div>Propreté de la zone<br/><small>sur 10 points</small></div>
-      <div class="checks" data-max="10" data-key="proprete">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="10" data-key="proprete"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
     <div class="crit"><div>Présence/état des affiches<br/><small>sur 10 points</small></div>
-      <div class="checks" data-max="10" data-key="affiches">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="10" data-key="affiches"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
     <div class="crit"><div>Accessibilité des contenants<br/><small>sur 10 points</small></div>
-      <div class="checks" data-max="10" data-key="accessibilite">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="10" data-key="accessibilite"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
     <div class="crit"><div>Respect du tri<br/><small>sur 40 points</small></div>
-      <div class="checks" data-max="40" data-key="tri">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="40" data-key="tri"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
     <div class="crit"><div>État des bennes de déchets<br/><small>sur 20 points</small></div>
-      <div class="checks" data-max="20" data-key="bennes">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="20" data-key="bennes"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
     <div class="crit"><div>Départ des contenants<br/><small>sur 10 points</small></div>
-      <div class="checks" data-max="10" data-key="depart">
-        <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
+      <div class="checks labeled" data-max="10" data-key="depart"><div class="letters"><span>S</span><span>A</span><span>M</span><span>I</span></div>
+        <div class="boxes"><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/></div>
       </div></div>
 
     <!-- Galerie multi-photos -->
@@ -456,22 +524,26 @@ mapContainer.addEventListener('wheel', e=>{
 /* ===== Dessin + état ===== */
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
 const zonePoints=Object.keys(coords).filter(k=>/^Z\d+$/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-const STORE_KEY='ticp.zoneReports.shared.v1';
-const LEGACY_KEYS=['zoneReports.v3','zoneReports.prm6.z9z10.v2xlsximg.idb'];
-let reports={};
-(function migrateAndLoad(){
-  let merged={};
-  for(const k of LEGACY_KEYS){
-    try{ const o=JSON.parse(localStorage.getItem(k)||'{}')||{}; merged={...merged,...o}; }catch{}
-  }
-  try{ const cur=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{}; merged={...merged,...cur}; }catch{}
-  localStorage.setItem(STORE_KEY, JSON.stringify(merged));
-  reports=merged;
-})();
-const isZoneDone=z=>!!reports[z];
-// sync inter-onglets
-window.addEventListener('storage',(e)=>{ if(e.key===STORE_KEY){ try{ reports=JSON.parse(e.newValue||'{}')||{} }catch{ reports={} } drawAll(); try{ renderStats(); }catch{} }});
+const STORE_KEY='zoneReports.prm6.z9z10.v2xlsximg.idb';
 
+/* === MIGRATION TICP->PRM6 key === */
+(function(){
+  try{
+    const OLD='zoneReports.v3'; const NEW=STORE_KEY;
+    const FLAG='__migr_ticp2prm6__';
+    if(!localStorage.getItem(FLAG)){
+      let merged={};
+      try{ const old=JSON.parse(localStorage.getItem(OLD)||'{}')||{}; merged={...merged,...old}; }catch{}
+      try{ const cur=JSON.parse(localStorage.getItem(NEW)||'{}')||{}; merged={...merged,...cur}; }catch{}
+      localStorage.setItem(NEW, JSON.stringify(merged));
+      localStorage.setItem(FLAG, '1');
+    }
+  }catch{}
+})();
+
+
+let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const isZoneDone=z=>!!reports[z];
 
 function drawAll(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -748,8 +820,27 @@ $('#btnSaveZone').addEventListener('click', ()=>{
   if(!currentZone) return;
   const {raw,detail}=computeRawTotalAndDetail();
   const totalAdj=Math.round(adjustedScore(raw));
-  reports[currentZone]={scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.slice(0)};
+  
+const existing = reports[currentZone]||{ photos:[] };
+reports[currentZone] = { ...existing, detail, gravite, score: totalAdj, updatedAt: Date.now() };
+const photosWithKeys = [];
+let idx=0;
+(async ()=>{
+  for(const p of photosLocal){
+    const key = p.key || `${currentZone}:${Date.now()}:${idx++}`;
+    await idbSet('photos', { key, zone: currentZone, ts: p.ts||Date.now(), dataUrl: p.dataUrl, comment: p.comment||'' });
+    photosWithKeys.push({ key });
+  }
+  // Index keys (PRM6)
+  reports[currentZone].photos = photosWithKeys;
+  // Compat TICP (ancien): duplique aussi
+  reports[currentZone].scores = detail;
+  reports[currentZone].total  = totalAdj;
+  // Optionnel: copie inline pour affichage immédiat
+  reports[currentZone].photosInline = photosLocal.slice(0);
   localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+})();
+
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
   closeZoneForm(); drawAll();
 });
@@ -1119,5 +1210,33 @@ function mergeIntoReports(zonesMap, photosMap){
 function init(){ initChoices(); fitAndCenter(); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
+<script>
+/* === Sélection unique par critère (PRM6-like) + alignement géré par CSS === */
+document.addEventListener('change', function(e){
+  const cb = e.target;
+  if(!(cb instanceof HTMLInputElement) || cb.type !== 'checkbox') return;
+  const group = cb.closest('.checks.labeled');
+  if(!group) return;
+  const boxes = group.querySelectorAll('.boxes input[type="checkbox"]');
+  if(cb.checked){
+    boxes.forEach(b => { if(b !== cb) b.checked = false; });
+  }
+});
+</script>
 </body>
 </html>
+
+<script>
+
+/* === Sync inter-onglets PRM6 key === */
+window.addEventListener('storage', (e)=>{
+  if(e.key===STORE_KEY){
+    try{ reports = JSON.parse(e.newValue||'{}')||{} }catch{ reports = {} }
+    try{ if(typeof drawAll==='function') drawAll(); }catch{}
+    try{ if(typeof renderList==='function') renderList(); }catch{}
+    try{ if(typeof renderStats==='function') renderStats(); }catch{}
+  }
+});
+
+</script>
