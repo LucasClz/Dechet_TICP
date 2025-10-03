@@ -663,9 +663,13 @@ window.addEventListener('storage', (e)=>{
 /* ===== Boot ===== */
 function boot(){ initChoices(); updateInfoPanel('Z9'); drawAll(); }
 window.addEventListener('load', boot);
+<script>
+  // IMPORTANT : empêche le script partagé d'accrocher btnSaveZone, etc.
+  window.TICP_NO_AUTO_HOOK = true;
 </script>
-  <script src="shared-store.js"></script>
+<script src="shared-store.js"></script>
 <script src="shared-reader.js"></script>
 </body>
 </html>
+
 
