@@ -3,11 +3,14 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>TICP • Localisation Déchets (GPS FIX)</title>
+<title>TICP • Localisation Déchets (GPS FIX) + Fusion tournées</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- ExcelJS pour lire les .xlsx -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 
 <style>
   :root{--brand:#E6007E;--brand-700:#b80063;--bg:#f6f7fb;--panel:#fff;--text:#1f2a37;--muted:#6b7280;--line:#e5e7eb}
@@ -118,6 +121,11 @@
       <div class="row">
         <button class="btn secondary small" id="btnTogglePanel">Panneau</button>
         <button class="btn secondary small" id="btnOpenStats">Graphiques</button>
+
+        <!-- Import fusion -->
+        <label class="btn secondary small" for="fileImport" title="Importer et fusionner des tournées (.xlsx/.xls)">Importer</label>
+        <input id="fileImport" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="display:none"/>
+
         <button class="btn secondary small" id="btnExportXls" title="Exporter la tournée au format .xls">Exporter XLS</button>
         <button class="btn danger small" id="btnResetAll" title="Tout remettre à zéro">Réinitialiser</button>
         <span class="chip" id="chipGps">GPS: off</span>
@@ -229,7 +237,7 @@
         <input type="checkbox"/><input type="checkbox"/><input type="checkbox"/><input type="checkbox"/>
       </div></div>
 
-    <!-- Galerie multi-photos avec commentaires individuels -->
+    <!-- Galerie multi-photos -->
     <div class="field">
       <label>Écarts constatés (photos + commentaires)</label>
       <div class="row">
@@ -289,6 +297,7 @@
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
+function parseLocaleDate(s){ const d = new Date(s); return Number.isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 
 /* ===== Panneau ===== */
 const panel = $('#panel');
@@ -322,7 +331,6 @@ const coords = {
   "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
   "Bureau Administratif":{x:1524,y:152}
 };
-
 const dechetsParZone = {
   Z1:["Bois","Carton","Bac noir","Plastique"],
   Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
@@ -356,8 +364,6 @@ const dechetsParZone = {
   Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
   Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
 };
-
-/* Groupes */
 const GROUPS = {
   BA:["Z5","Z12","Z19"],
   MR:["Z3","Z14","Z17","Z18","Z20","Z21","Z22","Z23","Z24","Z25","Z26","Z27","Z28","Z29","Z30","Z31","Z33","Z34"],
@@ -365,7 +371,6 @@ const GROUPS = {
   SC:["Z1","Z4","Z6","Z7","Z8","Z35"],
   PRM:["Z2","Z9","Z10","Z11","Z13","Z15","Z32"],
 };
-/* Liste officielle à afficher : Z1 → Z35 */
 const ZONES_ALL = Array.from({length:35},(_,i)=>`Z${i+1}`);
 
 /* ===== UI : selects ===== */
@@ -421,7 +426,6 @@ if (mapImg.complete) setTimeout(fitAndCenter,0);
 function imgToScreen(pt){ return {x:(base.ox+view.panX)+pt.x*(base.s*view.z), y:(base.oy+view.panY)+pt.y*(base.s*view.z)}; }
 function screenToImg(x,y){ return {x:(x-base.ox-view.panX)/(base.s*view.z), y:(y-base.oy-view.panY)/(base.s*view.z)}; }
 
-// 🔒 Empêcher de dézoomer < 100 %
 function setZoom(z,cx,cy){
   const MIN=1, MAX=4;
   z=Math.max(MIN,Math.min(MAX,z));
@@ -452,9 +456,22 @@ mapContainer.addEventListener('wheel', e=>{
 /* ===== Dessin + état ===== */
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
 const zonePoints=Object.keys(coords).filter(k=>/^Z\d+$/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
-const STORE_KEY='zoneReports.v3';
-let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const STORE_KEY='ticp.zoneReports.shared.v1';
+const LEGACY_KEYS=['zoneReports.v3','zoneReports.prm6.z9z10.v2xlsximg.idb'];
+let reports={};
+(function migrateAndLoad(){
+  let merged={};
+  for(const k of LEGACY_KEYS){
+    try{ const o=JSON.parse(localStorage.getItem(k)||'{}')||{}; merged={...merged,...o}; }catch{}
+  }
+  try{ const cur=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{}; merged={...merged,...cur}; }catch{}
+  localStorage.setItem(STORE_KEY, JSON.stringify(merged));
+  reports=merged;
+})();
 const isZoneDone=z=>!!reports[z];
+// sync inter-onglets
+window.addEventListener('storage',(e)=>{ if(e.key===STORE_KEY){ try{ reports=JSON.parse(e.newValue||'{}')||{} }catch{ reports={} } drawAll(); try{ renderStats(); }catch{} }});
+
 
 function drawAll(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -526,14 +543,10 @@ mapContainer.addEventListener('click', e=>{
     });
     if(best){ choicesZone.setChoiceByValue(best); $('#zoneSelect').dispatchEvent(new Event('change')); pick=false; return; }
   }
-  const nearest=getNearestZoneAtScreenPoint(sx,sy);
-  if(nearest && nearest.dist<=20){ openZoneForm(nearest.zone); }
+  let nearest=null,dmin=Infinity;
+  for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; nearest=zp.zone; } }
+  if(nearest && dmin<=20){ openZoneForm(nearest); }
 });
-function getNearestZoneAtScreenPoint(sx,sy){
-  let best=null,dmin=Infinity;
-  for(const zp of zonePoints){ const p=imgToScreen(zp); const d=Math.hypot(sx-p.x, sy-p.y); if(d<dmin){ dmin=d; best=zp.zone; } }
-  return best?{zone:best,dist:dmin}:null;
-}
 
 /* ===== GPS + Boussole ===== */
 function screenOrientationAngle(){
@@ -650,8 +663,9 @@ function renderPhotos(){
   photosLocal.forEach((p,idx)=>{
     const card = document.createElement('div');
     card.className = 'photo-card';
+    const safeSrc = (typeof p.dataUrl==='string' && p.dataUrl.startsWith('data:')) ? p.dataUrl : '';
     card.innerHTML = `
-      <img src="${p.dataUrl}" alt="Écart ${idx+1}">
+      <img src="${safeSrc}" alt="Écart ${idx+1}">
       <textarea placeholder="Commentaire de la photo...">${p.comment||''}</textarea>
       <div class="row photo-actions">
         <span class="muted">#${idx+1} • ${new Date(p.ts).toLocaleString()}</span>
@@ -661,29 +675,19 @@ function renderPhotos(){
         </div>
       </div>
     `;
-    const ta = card.querySelector('textarea');
-    ta.addEventListener('input', ()=>{ photosLocal[idx].comment = ta.value; });
-
-    // Ouvrir la lightbox sur clic vignette
-    const img = card.querySelector('img');
-    img.addEventListener('click',()=> openLightboxFromSrc(p.dataUrl));
-
+    card.querySelector('textarea').addEventListener('input', ()=>{ photosLocal[idx].comment = card.querySelector('textarea').value; });
+    card.querySelector('img').addEventListener('click',()=> { if(safeSrc) openLightboxFromSrc(safeSrc); });
     photosList.appendChild(card);
   });
 }
 photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
 btnAddFromCam.addEventListener('click', ()=>{ photosInput.setAttribute('capture','environment'); photosInput.click(); });
 
-// délégués : remplacer/supprimer
 photosList.addEventListener('click', async (e)=>{
-  const btn = e.target.closest('button[data-act]');
-  if(!btn) return;
-  const idx = parseInt(btn.dataset.idx,10);
-  if(Number.isNaN(idx)) return;
-
+  const btn = e.target.closest('button[data-act]'); if(!btn) return;
+  const idx = parseInt(btn.dataset.idx,10); if(Number.isNaN(idx)) return;
   if(btn.dataset.act === 'delete'){
-    photosLocal.splice(idx,1);
-    renderPhotos();
+    photosLocal.splice(idx,1); renderPhotos();
   }else if(btn.dataset.act === 'replace'){
     const tmp = document.createElement('input');
     tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
@@ -704,7 +708,6 @@ function openZoneForm(zone){
   titleEl.textContent=`Fiche • ${zone}`;
   subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
   checksContainers().forEach(c=>[...c.querySelectorAll('input')].forEach(cb=>cb.checked=false));
-
   photosInput.value=''; photosLocal=[]; renderPhotos();
 
   const saved=reports[zone];
@@ -712,9 +715,6 @@ function openZoneForm(zone){
     const idxByKey=saved.scores||{};
     checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
-    if(saved.photo && (!saved.photos || !saved.photos.length)){
-      saved.photos = [{ dataUrl: saved.photo, comment: saved.comment||'', ts: saved.savedAt || Date.now() }];
-    }
     if(saved.photos && Array.isArray(saved.photos)){
       photosLocal = saved.photos.map(p=>({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() }));
       renderPhotos();
@@ -727,7 +727,6 @@ function closeZoneForm(){ modal.classList.remove('open'); modal.setAttribute('ar
 $('#btnCloseModal').addEventListener('click', closeZoneForm);
 backdrop.addEventListener('click', closeZoneForm);
 
-// Gravité + cases exclusives
 document.getElementById('btnGravite').addEventListener('click', ()=>{ gravite=!gravite; document.getElementById('btnGravite').classList.toggle('on', gravite); updateTotalChip(); });
 document.addEventListener('change', e=>{
   const cb=e.target;
@@ -772,7 +771,6 @@ function closeStats(){ statsModal.classList.remove('open'); statsModal.setAttrib
 function renderStats(){
   const bars=$('#barsContainer'); bars.innerHTML=''; const rows=$('#zoneRows'); rows.innerHTML='';
 
-  // Averages per group
   const perGroup={};
   Object.entries(GROUPS).forEach(([g,zs])=>{
     const done=zs.map(z=>reports[z]?.total ?? null).filter(v=>v!==null);
@@ -785,18 +783,6 @@ function renderStats(){
   const globalSum=allScores.reduce((a,b)=>a+b,0);
   $('#statsChip').textContent=`Global : ${Math.round(globalAvg)}% • Total ${globalSum} pts • ${allScores.length} zone(s) notée(s)`;
 
-  Object.entries(perGroup).forEach(([g,info])=>{
-    const row=document.createElement('div'); row.className='barrow';
-    const label=document.createElement('div'); label.textContent=g;
-    const bar=document.createElement('div'); bar.className='bar';
-    const fill=document.createElement('span'); fill.style.width=Math.max(0,Math.min(100,info.avg))+'%'; bar.appendChild(fill);
-    const pct=document.createElement('div'); pct.style.textAlign='right'; pct.textContent=(info.count?Math.round(info.avg):0)+'%';
-    row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
-    const meta=document.createElement('div'); meta.className='muted'; meta.style.gridColumn='1 / -1'; meta.textContent=`${info.count}/${info.totalZones} zone(s) notée(s)`;
-    bars.appendChild(row); bars.appendChild(meta);
-  });
-
-  // 🔎 Toujours afficher les 35 zones (Z1 → Z35), même non notées
   ZONES_ALL.forEach(z=>{
     const g=groupOf(z);
     const r=reports[z];
@@ -811,7 +797,7 @@ function renderStats(){
   });
 }
 
-/* ===== Réinitialiser toute la tournée ===== */
+/* ===== Réinitialiser ===== */
 document.getElementById('btnResetAll').addEventListener('click', ()=>{
   const confirmMsg = 'Confirmer la réinitialisation ?\nToutes les fiches enregistrées seront supprimées.';
   if(!confirm(confirmMsg)) return;
@@ -822,21 +808,15 @@ document.getElementById('btnResetAll').addEventListener('click', ()=>{
   if(statsModal.classList.contains('open')) renderStats();
 });
 
-/* ===== Export XLS (avec miniatures photos + totaux) ===== */
+/* ===== Export XLS (HTML) ===== */
 document.getElementById('btnExportXls').addEventListener('click', exportXls);
-
 function idxToPct(idx){ return (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0); }
 function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx)) : 0; }
-
 function buildExport(){
   const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
-  const rows=[];  // par zone
-  const photosRows=[]; // section photos
-
+  const rows=[];  const photosRows=[];
   ZONES_ALL.forEach(z=>{
-    const r=reports[z]; if(!r) { // inclure ligne vide pour zones non notées ? Non, export = tournée en cours
-      return;
-    }
+    const r=reports[z]; if(!r) return;
     const s=r.scores||{};
     rows.push({
       Zone:z,
@@ -865,15 +845,11 @@ function buildExport(){
   });
   return {rows, photosRows};
 }
-
 function exportXls(){
   const {rows, photosRows} = buildExport();
   if(!rows.length){ toast('Aucune fiche à exporter.'); return; }
-
-  // Totaux & moyennes
   const totalAll = rows.reduce((a,b)=>a+(b.Total||0),0);
   const avgAll   = Math.round(totalAll / rows.length);
-
   const perGroup = {};
   rows.forEach(r=>{ perGroup[r.Groupe] ??= {sum:0,count:0}; perGroup[r.Groupe].sum+= (r.Total||0); perGroup[r.Groupe].count++; });
 
@@ -900,7 +876,8 @@ function exportXls(){
     html += '<br/><h3>Écarts (photos)</h3>';
     html += '<table border="1"><thead><tr><th>Zone</th><th>Groupe</th><th>#</th><th>Date</th><th>Commentaire</th><th>Image</th></tr></thead><tbody>';
     photosRows.forEach(p=>{
-      html += `<tr><td>${esc(p.Zone)}</td><td>${esc(p.Groupe)}</td><td>${p.Index}</td><td>${esc(p.Date)}</td><td>${esc(p.Commentaire)}</td><td><img src="${p.DataUrl}" alt="photo" width="220"></td></tr>`;
+      const safe = (typeof p.DataUrl==='string' && p.DataUrl.startsWith('data:')) ? p.DataUrl : '';
+      html += `<tr><td>${esc(p.Zone)}</td><td>${esc(p.Groupe)}</td><td>${p.Index}</td><td>${esc(p.Date)}</td><td>${esc(p.Commentaire)}</td><td>${safe?`<img src="${safe}" alt="photo" width="220">`:''}</td></tr>`;
     });
     html += '</tbody></table>';
   }
@@ -925,23 +902,17 @@ const lbReset  = document.getElementById('lbZoomReset');
 
 let lbScale = 1, lbX = 0, lbY = 0, lbDrag = false, lbLX = 0, lbLY = 0;
 
-function applyLbTransform(){
-  lbImg.style.transform = `translate(${lbX}px, ${lbY}px) scale(${lbScale})`;
-}
+function applyLbTransform(){ lbImg.style.transform = `translate(${lbX}px, ${lbY}px) scale(${lbScale})`; }
 function openLightboxFromSrc(src){
+  if(!src || typeof src!=='string' || !src.startsWith('data:')){ toast('Image indisponible'); return; }
   lbImg.src = src; lbScale = 1; lbX = 0; lbY = 0; applyLbTransform();
   lightbox.style.display = 'flex';
   lightbox.setAttribute('aria-hidden','false');
 }
-function closeLightbox(){
-  lightbox.style.display = 'none';
-  lightbox.setAttribute('aria-hidden','true');
-  lbImg.src = '';
-}
+function closeLightbox(){ lightbox.style.display = 'none'; lightbox.setAttribute('aria-hidden','true'); lbImg.src = ''; }
 lbClose.addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', (e)=>{ if(e.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && lightbox.style.display === 'flex') closeLightbox(); });
-
 lbIn.addEventListener('click', ()=>{ lbScale = Math.min(6, lbScale + 0.25); applyLbTransform(); });
 lbOut.addEventListener('click', ()=>{ lbScale = Math.max(1, lbScale - 0.25); applyLbTransform(); });
 lbReset.addEventListener('click', ()=>{ lbScale = 1; lbX = 0; lbY = 0; applyLbTransform(); });
@@ -957,6 +928,192 @@ lbImg.addEventListener('wheel', (e)=>{
   lbScale = Math.max(1, Math.min(6, lbScale + delta));
   applyLbTransform();
 }, {passive:false});
+
+/* ============================================================
+   ========  IMPORT / FUSION DE TOURNÉES (.xlsx / .xls) =======
+   ============================================================ */
+
+document.getElementById('fileImport').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files||[]);
+  if(!files.length){ toast('Aucun fichier sélectionné'); return; }
+  let importedZones = 0, importedPhotos = 0, overwritten = 0, skippedNoPhoto = 0;
+
+  for(const f of files){
+    try{
+      if (/\.(xlsx)$/i.test(f.name)){
+        const {zones, photos} = await importFromXlsx(f);
+        const r = mergeIntoReports(zones, photos);
+        importedZones += r.zonesAdded; importedPhotos += r.photosAdded; overwritten += r.overwritten; skippedNoPhoto += r.skipped;
+      } else if (/\.(xls)$/i.test(f.name)){
+        const text = await f.text();
+        const {zones, photos} = importFromXlsHtml(text);
+        const r = mergeIntoReports(zones, photos);
+        importedZones += r.zonesAdded; importedPhotos += r.photosAdded; overwritten += r.overwritten; skippedNoPhoto += r.skipped;
+      } else {
+        toast(`Format non pris en charge: ${f.name}`);
+      }
+    }catch(err){
+      console.error('Import error', err);
+      toast(`Erreur import ${f.name}`);
+    }
+  }
+
+  localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+  drawAll(); if(statsModal.classList.contains('open')) renderStats();
+
+  toast(`Fusion OK • Zones+${importedZones} (écrasées ${overwritten}) • Photos+${importedPhotos}${skippedNoPhoto?` • Sans photo:${skippedNoPhoto}`:''}`);
+  e.target.value=''; // reset input
+});
+
+/* ---- IMPORT XLSX (corrigé : accepte Image/DataUrl/Photo) ---- */
+async function importFromXlsx(file){
+  const ab = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(ab);
+
+  const zones = new Map();   // zone -> { total, gravite, savedAt }
+  const photos = new Map();  // zone -> [{dataUrl, comment, ts}, ...]
+
+  // Feuille "Résumé"
+  const wsSum = wb.getWorksheet('Résumé') || wb.getWorksheet('Resume');
+  if(wsSum){
+    const header = {};
+    wsSum.getRow(1).eachCell((c,idx)=>{ header[(c.value||'').toString().trim()] = idx; });
+    wsSum.eachRow((row, rIdx)=>{
+      if(rIdx===1) return;
+      const get = (name)=> row.getCell(header[name]||0).value;
+      const z = String(get('Zone')||'').trim();
+      if(!/^Z\d+$/i.test(z)) return;
+      const total = Number(get('Total')||0);
+      const grav  = String(get('Gravité')||get('Gravite')||'').toLowerCase().startsWith('o');
+      const dateStr = row.getCell(header['Date']||0).text || get('Date') || '';
+      const savedAt = (new Date(dateStr)).getTime() || Date.now();
+      zones.set(z, { total, gravite:grav, savedAt });
+    });
+  }
+
+  // Feuille "Photos"
+  const wsPh = wb.getWorksheet('Photos');
+  if(wsPh){
+    const H = {};
+    wsPh.getRow(1).eachCell((c,idx)=>{ H[(c.value||'').toString().trim()] = idx; });
+
+    const imageKey =
+      ('Image'   in H) ? 'Image'   :
+      ('DataUrl' in H) ? 'DataUrl' :
+      ('Photo'   in H) ? 'Photo'   : null;
+
+    wsPh.eachRow((row, rIdx)=>{
+      if(rIdx===1) return;
+      const getTxt = (name)=> {
+        const cell = row.getCell(H[name]||0);
+        return (cell && (cell.text||cell.value||'')).toString();
+      };
+
+      const z = (getTxt('Zone')||'').trim();
+      if(!/^Z\d+$/i.test(z)) return;
+
+      const comment = getTxt('Commentaire')||'';
+      const dateStr = getTxt('Date')||'';
+      const ts = (new Date(dateStr)).getTime() || Date.now();
+
+      let dataUrl = imageKey ? (getTxt(imageKey)||'').trim() : '';
+      if (!dataUrl && H['Photo']!=null) dataUrl = getTxt('Photo').trim();
+
+      if(dataUrl && /^data:/i.test(dataUrl)){
+        if(!photos.has(z)) photos.set(z,[]);
+        photos.get(z).push({ dataUrl, comment, ts });
+      }
+    });
+  }
+
+  return {zones, photos};
+}
+
+/* ---- IMPORT XLS HTML ---- */
+function importFromXlsHtml(htmlText){
+  const zones = new Map();  const photos = new Map();
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+
+  const tables = Array.from(doc.querySelectorAll('table'));
+  for(const table of tables){
+    const headers = Array.from(table.querySelectorAll('thead tr th')).map(th=>th.textContent.trim());
+    if(headers.length && headers.includes('Zone') && headers.includes('Total')){
+      const idxZone = headers.indexOf('Zone');
+      const idxTot  = headers.indexOf('Total');
+      const idxGra  = headers.indexOf('Gravité');
+      const idxDate = headers.indexOf('Date');
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const tds = Array.from(tr.children).map(td=>td.textContent.trim());
+        const z = (tds[idxZone]||'').trim();
+        if(!/^Z\d+$/i.test(z)) return;
+        const total = parseInt(tds[idxTot]||'0',10)||0;
+        const gravite = (tds[idxGra]||'').toLowerCase().startsWith('o');
+        const savedAt = parseLocaleDate(tds[idxDate]||'');
+        zones.set(z, { total, gravite, savedAt });
+      });
+    }
+  }
+
+  for(const table of tables){
+    const headers = Array.from(table.querySelectorAll('thead tr th')).map(th=>th.textContent.trim());
+    if(headers.length && headers.includes('Image') && headers.includes('Zone')){
+      const idxZone = headers.indexOf('Zone');
+      const idxCom  = headers.indexOf('Commentaire');
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const tds = Array.from(tr.children);
+        const z = (tds[idxZone]?.textContent||'').trim();
+        if(!/^Z\d+$/i.test(z)) return;
+        const comment = (tds[idxCom]?.textContent||'').trim();
+        const img = tds[tds.length-1]?.querySelector('img');
+        const src = img?.getAttribute('src')||'';
+        if(src && src.startsWith('data:')){
+          const ts = Date.now();
+          if(!photos.has(z)) photos.set(z,[]);
+          photos.get(z).push({dataUrl:src, comment, ts});
+        }
+      });
+    }
+  }
+  return {zones, photos};
+}
+
+/* ---- Fusion dans reports ---- */
+function mergeIntoReports(zonesMap, photosMap){
+  let zonesAdded=0, photosAdded=0, overwritten=0, skipped=0;
+  const dedup = new Set();
+  for(const r of Object.values(reports)){ (r.photos||[]).forEach(p=>{ if(p?.dataUrl) dedup.add(p.dataUrl); }); }
+
+  zonesMap.forEach((zData, zName)=>{
+    const incoming = {
+      scores: reports[zName]?.scores||null,
+      total: zData.total||0,
+      gravite: !!zData.gravite,
+      savedAt: zData.savedAt || Date.now(),
+      photos: (reports[zName]?.photos||[]).slice(0)
+    };
+
+    const existed = !!reports[zName];
+    const shouldReplace = !existed || (incoming.savedAt > (reports[zName].savedAt||0)) || (incoming.total !== (reports[zName].total||-1));
+
+    if(shouldReplace){
+      reports[zName] = incoming;
+      if(existed) overwritten++; else zonesAdded++;
+    }
+
+    const ph = photosMap.get(zName)||[];
+    if(ph.length===0){ skipped++; }
+    ph.forEach(p=>{
+      if(p?.dataUrl && !dedup.has(p.dataUrl)){
+        reports[zName].photos.push({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() });
+        dedup.add(p.dataUrl);
+        photosAdded++;
+      }
+    });
+  });
+
+  return {zonesAdded, photosAdded, overwritten, skipped};
+}
 
 /* ===== Init ===== */
 function init(){ initChoices(); fitAndCenter(); }
