@@ -132,7 +132,7 @@
         <label class="btn secondary small" for="fileImport" title="Importer et fusionner des tournées (.xlsx/.xls)">Importer</label>
         <input id="fileImport" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="display:none"/>
 
-        <button class="btn secondary small" id="btnExportXls" title="Exporter la tournée au format .xls">Exporter XLS</button>
+        <button class="btn secondary small" id="btnExportXls" title="Exporter la tournée au format .xlsx">Exporter XLSX</button>
         <button class="btn danger small" id="btnResetAll" title="Tout remettre à zéro">Réinitialiser</button>
         <span class="chip" id="chipGps">GPS: off</span>
         <span class="chip" id="chipCompass">Boussole: off</span>
@@ -926,19 +926,19 @@ document.getElementById('btnResetAll').addEventListener('click', async ()=>{
   if(statsModal.classList.contains('open')) renderStats();
 });
 
-/* ===== Export XLS (HTML) ===== */
-document.getElementById('btnExportXls').addEventListener('click', exportXls);
+/* ===== Export XLSX (ExcelJS) ===== */
+document.getElementById('btnExportXls').addEventListener('click', exportXlsx);
 function idxToPct(idx){ return (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0); }
 function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx)) : 0; }
+
 function buildExport(){
   const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
-  const rows=[];  const photosRows=[];
+  const rows=[]; const photosRows=[];
   ZONES_ALL.forEach(z=>{
     const r=reports[z]; if(!r) return;
     const s=r.scores||{};
     rows.push({
-      Zone:z,
-      Groupe:groupOf(z),
+      Zone:z, Groupe:groupOf(z),
       Propreté:scoreFromIdx(criteriaMax.proprete, s.proprete ?? -1),
       Affiches:scoreFromIdx(criteriaMax.affiches, s.affiches ?? -1),
       Accessibilité:scoreFromIdx(criteriaMax.accessibilite, s.accessibilite ?? -1),
@@ -951,63 +951,153 @@ function buildExport(){
       Date: r.savedAt ? new Date(r.savedAt).toLocaleString() : ''
     });
     (r.photos||[]).forEach((p,i)=>{
-      photosRows.push({
-        Zone:z,
-        Groupe:groupOf(z),
-        Index:i+1,
+      photosRows.push({ Zone:z, Groupe:groupOf(z), Index:i+1,
         Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(),
-        Commentaire:p.comment||'',
-        DataUrl:p.dataUrl
-      });
+        Commentaire:p.comment||'', DataUrl:p.dataUrl });
     });
   });
   return {rows, photosRows};
 }
-function exportXls(){
+
+/* Convertit un dataUrl base64 en Uint8Array */
+function dataUrlToUint8(dataUrl){
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const arr = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+
+/* Détecte l'extension depuis le dataUrl */
+function mimeToExt(dataUrl){
+  if(dataUrl.includes('image/png')) return 'png';
+  if(dataUrl.includes('image/gif')) return 'gif';
+  return 'jpeg';
+}
+
+async function exportXlsx(){
   const {rows, photosRows} = buildExport();
   if(!rows.length){ toast('Aucune fiche à exporter.'); return; }
+  toast('Génération du fichier…');
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'TICP'; wb.created = new Date();
+
+  /* ---- Styles communs ---- */
+  const hdrFill  = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE6007E'} };
+  const hdrFont  = { bold:true, color:{argb:'FFFFFFFF'}, size:11 };
+  const subFill  = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF3F4F6'} };
+  const subFont  = { bold:true, size:11 };
+  const border   = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+  const centerAlign = { horizontal:'center', vertical:'middle' };
+
+  /* ==================== Feuille 1 : Résumé ==================== */
+  const ws1 = wb.addWorksheet('Résumé', { views:[{state:'frozen',ySplit:3}] });
+
+  // Titre principal
   const totalAll = rows.reduce((a,b)=>a+(b.Total||0),0);
   const avgAll   = Math.round(totalAll / rows.length);
+  ws1.mergeCells('A1:L1');
+  const titleCell = ws1.getCell('A1');
+  titleCell.value = `TICP • Tournée déchets — ${rows.length} zone(s) notée(s) • Moyenne globale : ${avgAll}% • Total : ${totalAll} pts`;
+  titleCell.font  = { bold:true, size:13, color:{argb:'FFFFFFFF'} };
+  titleCell.fill  = hdrFill;
+  titleCell.alignment = centerAlign;
+  ws1.getRow(1).height = 28;
+
+  // Ligne 2 : moyennes par groupe
   const perGroup = {};
-  rows.forEach(r=>{ perGroup[r.Groupe] ??= {sum:0,count:0}; perGroup[r.Groupe].sum+= (r.Total||0); perGroup[r.Groupe].count++; });
+  rows.forEach(r=>{ perGroup[r.Groupe] ??= {sum:0,count:0}; perGroup[r.Groupe].sum+=(r.Total||0); perGroup[r.Groupe].count++; });
+  const grpStr = Object.entries(perGroup).map(([g,st])=>`${g}: ${st.count?Math.round(st.sum/st.count):0}%`).join('   |   ');
+  ws1.mergeCells('A2:L2');
+  const grpCell = ws1.getCell('A2');
+  grpCell.value = grpStr; grpCell.font={italic:true,size:10}; grpCell.fill=subFill; grpCell.alignment=centerAlign;
+  ws1.getRow(2).height = 18;
 
-  const headers1 = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Nb photos','Date'];
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  let html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>';
-  html += '<h2>Résumé de tournée</h2>';
-  html += `<p><b>Total toutes les zones notées :</b> ${totalAll} points — <b>Moyenne globale :</b> ${avgAll}% — <b>Zones notées :</b> ${rows.length} / 35</p>`;
-
-  html += '<table border="1"><thead><tr>'+headers1.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
-  rows.forEach(r=>{ html += '<tr>'+headers1.map(h=>`<td>${esc(r[h]??'')}</td>`).join('')+'</tr>'; });
-  html += '</tbody></table>';
-
-  html += '<br/><h3>Moyennes par groupe</h3>';
-  html += '<table border="1"><thead><tr><th>Groupe</th><th>Zones notées</th><th>Moyenne</th><th>Somme</th></tr></thead><tbody>';
-  Object.entries(perGroup).forEach(([g,st])=>{
-    const avg = st.count? Math.round(st.sum/st.count) : 0;
-    html += `<tr><td>${esc(g)}</td><td>${st.count}</td><td>${avg}%</td><td>${st.sum}</td></tr>`;
+  // Ligne 3 : en-têtes colonnes
+  const cols1 = ['Zone','Groupe','Propreté','Affiches','Accessibilité','Tri','Bennes','Départ','Gravité','Total','Nb photos','Date'];
+  const colWidths1 = [8,8,12,12,16,8,10,10,10,8,11,20];
+  const hdrRow = ws1.getRow(3);
+  cols1.forEach((h,i)=>{
+    const cell = hdrRow.getCell(i+1);
+    cell.value=h; cell.font=hdrFont; cell.fill=hdrFill; cell.alignment=centerAlign; cell.border=border;
+    ws1.getColumn(i+1).width = colWidths1[i];
   });
-  html += '</tbody></table>';
+  hdrRow.height = 22;
 
-  if(photosRows.length){
-    html += '<br/><h3>Écarts (photos)</h3>';
-    html += '<table border="1"><thead><tr><th>Zone</th><th>Groupe</th><th>#</th><th>Date</th><th>Commentaire</th><th>Image</th></tr></thead><tbody>';
-    photosRows.forEach(p=>{
-      const safe = (typeof p.DataUrl==='string' && p.DataUrl.startsWith('data:')) ? p.DataUrl : '';
-      html += `<tr><td>${esc(p.Zone)}</td><td>${esc(p.Groupe)}</td><td>${p.Index}</td><td>${esc(p.Date)}</td><td>${esc(p.Commentaire)}</td><td>${safe?`<img src="${safe}" alt="photo" width="220">`:''}</td></tr>`;
+  // Données
+  rows.forEach((r,ri)=>{
+    const row = ws1.addRow(cols1.map(h=>r[h]??''));
+    row.height = 18;
+    row.eachCell((cell,ci)=>{
+      cell.border = border;
+      cell.alignment = { horizontal: ci===12?'left':'center', vertical:'middle' };
+      if(ri%2===1) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFAFAFA'} };
+      // Coloration Total
+      if(ci===10){
+        const v = Number(cell.value);
+        if(v>=75) cell.font={color:{argb:'FF065F46'},bold:true};
+        else if(v>=50) cell.font={color:{argb:'FF1D4ED8'}};
+        else cell.font={color:{argb:'FFB91C1C'}};
+      }
     });
-    html += '</tbody></table>';
+  });
+
+  /* ==================== Feuille 2 : Photos ==================== */
+  const ws2 = wb.addWorksheet('Photos');
+  const photoColHeaders = ['Zone','Groupe','#','Date','Commentaire','Image'];
+  const photoColWidths  = [8, 8, 5, 20, 40, 30];
+  const hdrRow2 = ws2.getRow(1);
+  photoColHeaders.forEach((h,i)=>{
+    const cell = hdrRow2.getCell(i+1);
+    cell.value=h; cell.font=hdrFont; cell.fill=hdrFill; cell.alignment=centerAlign; cell.border=border;
+    ws2.getColumn(i+1).width = photoColWidths[i];
+  });
+  hdrRow2.height = 22;
+
+  const IMG_H_PX = 120; // hauteur image dans la cellule
+  const ROW_H_PT = IMG_H_PX * 0.75; // px → points Excel (~)
+
+  for(let pi=0; pi<photosRows.length; pi++){
+    const p = photosRows[pi];
+    const rowIdx = pi + 2;
+    const wsRow = ws2.getRow(rowIdx);
+    wsRow.getCell(1).value = p.Zone;
+    wsRow.getCell(2).value = p.Groupe;
+    wsRow.getCell(3).value = p.Index;
+    wsRow.getCell(4).value = p.Date;
+    wsRow.getCell(5).value = p.Commentaire;
+    wsRow.height = ROW_H_PT;
+    for(let ci=1;ci<=5;ci++){
+      wsRow.getCell(ci).border=border;
+      wsRow.getCell(ci).alignment={vertical:'top',wrapText:true};
+    }
+    wsRow.getCell(6).border=border;
+
+    // Image embarquée
+    if(p.DataUrl && p.DataUrl.startsWith('data:')){
+      try{
+        const ext  = mimeToExt(p.DataUrl);
+        const data = dataUrlToUint8(p.DataUrl);
+        const imgId = wb.addImage({ buffer: data, extension: ext });
+        ws2.addImage(imgId, {
+          tl: { col: 5, row: rowIdx - 1 },
+          br: { col: 6, row: rowIdx },
+          editAs: 'oneCell'
+        });
+      }catch(e){ wsRow.getCell(6).value='[image]'; }
+    }
   }
 
-  html += '</body></html>';
-
-  const blob = new Blob([html], {type:'application/vnd.ms-excel'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  /* ==================== Téléchargement ==================== */
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
   const dateStr = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-  a.href = url; a.download = `tournee-dechets_${dateStr}.xls`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  toast('Export XLS généré.');
+  a.href=url; a.download=`tournee-dechets_${dateStr}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Export XLSX généré ✓');
 }
 
 /* ===== Lightbox ===== */
