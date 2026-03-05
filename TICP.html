@@ -245,7 +245,7 @@ async function idbGetMany(store, keys){
     </section>
 
     <section class="mapwrap" id="mapContainer">
-      <img id="mapImage" class="mapimg" src="TICP.png" alt="Plan du site" draggable="false"/>
+        <img id="mapImage" class="mapimg" src="images/TICP.svg" alt="Plan du site" draggable="false"/>
       <canvas id="overlay"></canvas>
 
       <div class="toolbox">
@@ -775,7 +775,7 @@ photosList.addEventListener('click', async (e)=>{
   }
 });
 
-function openZoneForm(zone){
+async function openZoneForm(zone){
   currentZone=zone; gravite=false; $('#btnGravite').classList.remove('on');
   titleEl.textContent=`Fiche • ${zone}`;
   subEl.textContent=(dechetsParZone[zone]||[]).length?`Déchets: ${dechetsParZone[zone].join(', ')}`:'Aucun type déclaré';
@@ -787,8 +787,22 @@ function openZoneForm(zone){
     const idxByKey=saved.scores||{};
     checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
-    if(saved.photos && Array.isArray(saved.photos)){
-      photosLocal = saved.photos.map(p=>({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() }));
+
+    // Load photos: prefer inline copy, else load from keys stored in reports (IndexedDB)
+    if(Array.isArray(saved.photosInline) && saved.photosInline.length){
+      photosLocal = saved.photosInline.map(p=>({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now(), key:p.key }));
+      renderPhotos();
+    } else if(Array.isArray(saved.photos) && saved.photos.length){
+      photosLocal = [];
+      for(const ph of saved.photos){
+        if(ph.dataUrl){ photosLocal.push({ dataUrl:ph.dataUrl, comment:ph.comment||'', ts:ph.ts||Date.now(), key:ph.key }); }
+        else if(ph.key){
+          try{
+            const rec = await idbGet('photos', ph.key);
+            if(rec && rec.dataUrl) photosLocal.push({ dataUrl:rec.dataUrl, comment:rec.comment||'', ts:rec.ts||Date.now(), key:ph.key });
+          }catch(_){ }
+        }
+      }
       renderPhotos();
     }
   }
@@ -830,6 +844,8 @@ let idx=0;
     const key = p.key || `${currentZone}:${Date.now()}:${idx++}`;
     await idbSet('photos', { key, zone: currentZone, ts: p.ts||Date.now(), dataUrl: p.dataUrl, comment: p.comment||'' });
     photosWithKeys.push({ key });
+    // persist the key on the local photo object so subsequent edits reference the stored record
+    p.key = key;
   }
   // Index keys (PRM6)
   reports[currentZone].photos = photosWithKeys;
@@ -1241,4 +1257,5 @@ window.addEventListener('storage', (e)=>{
 });
 
 </script>
+
 
