@@ -182,6 +182,7 @@ async function idbGetMany(store, keys){
 </style>
 </head>
 <body>
+
 <div class="app">
   <header class="appbar">
     <div class="bar">
@@ -245,7 +246,7 @@ async function idbGetMany(store, keys){
     </section>
 
     <section class="mapwrap" id="mapContainer">
-        <img id="mapImage" class="mapimg" src="images/TICP.svg" alt="Plan du site" draggable="false"/>
+      <img id="mapImage" class="mapimg" src="images/TICP.svg" alt="Plan du site" draggable="false"/>
       <canvas id="overlay"></canvas>
 
       <div class="toolbox">
@@ -365,6 +366,46 @@ async function idbGetMany(store, keys){
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
+// Convertit une DataURL en Blob
+function dataURLToBlob(dataurl){
+  try{
+    const arr = dataurl.split(',');
+    const mime = (arr[0].match(/:(.*?);/)||[])[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length; const u8 = new Uint8Array(n);
+    while(n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+  }catch(e){ console.error('dataURLToBlob', e); return null; }
+}
+
+function downloadBlob(filename, blob){
+  if(!blob) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 5000);
+}
+
+// Télécharge toutes les photos d'une fiche (supporte data: et URL distante)
+async function downloadAllPhotos(photos, zone){
+  if(!Array.isArray(photos) || !photos.length) return;
+  for(let i=0;i<photos.length;i++){
+    const p = photos[i]; if(!p || !p.dataUrl) continue;
+    try{
+      let blob = null;
+      if(typeof p.dataUrl === 'string' && p.dataUrl.startsWith('data:')){
+        blob = dataURLToBlob(p.dataUrl);
+      } else {
+        try{ const resp = await fetch(p.dataUrl); if(resp.ok) blob = await resp.blob(); }catch(e){ console.warn('fetch image failed', e); }
+      }
+      if(!blob) continue;
+      const mime = blob.type || 'image/png';
+      let ext = (mime.split('/')[1]||'png').split(';')[0]; if(ext==='jpeg') ext='jpg';
+      const dateStr = new Date(p.ts||Date.now()).toISOString().slice(0,19).replace(/[:T]/g,'-');
+      const name = `${zone}_${dateStr}_${i+1}.${ext}`;
+      downloadBlob(name, blob);
+    }catch(err){ console.error('downloadAllPhotos error', err); }
+  }
+}
 function parseLocaleDate(s){ const d = new Date(s); return Number.isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 
 /* ===== Panneau ===== */
@@ -839,23 +880,26 @@ const existing = reports[currentZone]||{ photos:[] };
 reports[currentZone] = { ...existing, detail, gravite, score: totalAdj, updatedAt: Date.now() };
 const photosWithKeys = [];
 let idx=0;
-(async ()=>{
-  for(const p of photosLocal){
-    const key = p.key || `${currentZone}:${Date.now()}:${idx++}`;
-    await idbSet('photos', { key, zone: currentZone, ts: p.ts||Date.now(), dataUrl: p.dataUrl, comment: p.comment||'' });
-    photosWithKeys.push({ key });
-    // persist the key on the local photo object so subsequent edits reference the stored record
-    p.key = key;
-  }
-  // Index keys (PRM6)
-  reports[currentZone].photos = photosWithKeys;
-  // Compat TICP (ancien): duplique aussi
-  reports[currentZone].scores = detail;
-  reports[currentZone].total  = totalAdj;
-  // Optionnel: copie inline pour affichage immédiat
-  reports[currentZone].photosInline = photosLocal.slice(0);
-  localStorage.setItem(STORE_KEY, JSON.stringify(reports));
-})();
+  (async ()=>{
+    for(const p of photosLocal){
+      const key = p.key || `${currentZone}:${Date.now()}:${idx++}`;
+      await idbSet('photos', { key, zone: currentZone, ts: p.ts||Date.now(), dataUrl: p.dataUrl, comment: p.comment||'' });
+      photosWithKeys.push({ key });
+      // persist the key on the local photo object so subsequent edits reference the stored record
+      p.key = key;
+    }
+    // Index keys (PRM6)
+    reports[currentZone].photos = photosWithKeys;
+    // Compat TICP (ancien): duplique aussi
+    reports[currentZone].scores = detail;
+    reports[currentZone].total  = totalAdj;
+    // Optionnel: copie inline pour affichage immédiat
+    reports[currentZone].photosInline = photosLocal.slice(0);
+    localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+
+    // Déclenche le téléchargement local des images importées (une par une)
+    try{ await downloadAllPhotos(photosLocal, currentZone); }catch(e){ console.error('downloadAllPhotos', e); }
+  })();
 
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
   closeZoneForm(); drawAll();
@@ -1241,9 +1285,6 @@ document.addEventListener('change', function(e){
 });
 </script>
   <script src="shared-store.js"></script>
-</body>
-</html>
-
 <script>
 
 /* === Sync inter-onglets PRM6 key === */
@@ -1257,5 +1298,5 @@ window.addEventListener('storage', (e)=>{
 });
 
 </script>
-
-
+</body>
+</html>
