@@ -96,6 +96,12 @@
   .photo-card .row{justify-content:space-between}
   .photo-actions .btn.small{padding:6px 8px}
 
+  /* Zone de dépôt */
+  .drop-zone{border:2px dashed var(--line);border-radius:12px;padding:18px 12px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:border-color .2s, background .2s;background:#fafafa;margin-top:6px;user-select:none}
+  .drop-zone:hover,.drop-zone.dragover{border-color:var(--brand);background:#fff0f8;color:var(--brand)}
+  .drop-zone svg{display:block;margin:0 auto 6px;opacity:.5}
+  .drop-zone.dragover svg{opacity:1}
+
   /* Stats */
   .modal.stats{width:min(780px,96vw)}
   .barrow{display:grid;grid-template-columns:120px 1fr 54px;gap:8px;align-items:center}
@@ -243,6 +249,11 @@
       <div class="row">
         <input type="file" id="photosInput" accept="image/*" capture="environment" multiple />
         <button class="btn secondary small" id="btnAddFromCam" type="button">Prendre une photo</button>
+      </div>
+      <div id="dropZone" class="drop-zone" title="Glisser-déposer des images ici, ou cliquer pour parcourir">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Glisser des images ici, coller depuis Excel (Ctrl+V)<br/>
+        <span style="font-size:11px;opacity:.7">ou cliquer pour choisir un fichier</span>
       </div>
       <div id="photosList" class="photos-grid muted">Aucune photo pour le moment</div>
       <div class="muted">Astuce : sélection multiple possible. Chaque photo possède son propre commentaire.</div>
@@ -747,6 +758,47 @@ function renderPhotos(){
 }
 photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
 btnAddFromCam.addEventListener('click', ()=>{ photosInput.setAttribute('capture','environment'); photosInput.click(); });
+
+/* ===== Drag & Drop + Coller depuis presse-papiers ===== */
+const dropZone = document.getElementById('dropZone');
+
+// Clic sur la zone → ouvre le sélecteur de fichier
+dropZone.addEventListener('click', ()=>{ photosInput.removeAttribute('capture'); photosInput.click(); });
+
+// Drag over / leave
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', e=>{ if(!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('dragenter', e=>{ e.preventDefault(); });
+
+// Drop : fichiers depuis explorateur ou images depuis Excel/Word
+dropZone.addEventListener('drop', async e=>{
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const items = Array.from(e.dataTransfer.items||[]);
+  const files = Array.from(e.dataTransfer.files||[]);
+  // Cas Excel : l'image est dans les items comme 'image/*' sans fichier associé
+  const imageItems = items.filter(it=>it.kind==='file' && it.type.startsWith('image/'));
+  if(imageItems.length){
+    const extracted = imageItems.map(it=>it.getAsFile()).filter(Boolean);
+    await addFilesToGallery(extracted);
+  } else if(files.length){
+    await addFilesToGallery(files.filter(f=>f.type.startsWith('image/')));
+  } else {
+    toast('Aucune image détectée dans le dépôt.');
+  }
+});
+
+// Coller depuis presse-papiers (Ctrl+V) quand la modale est ouverte
+document.addEventListener('paste', async e=>{
+  if(!modal.classList.contains('open')) return; // seulement si la fiche est ouverte
+  const items = Array.from(e.clipboardData?.items||[]);
+  const imgItems = items.filter(it=>it.type.startsWith('image/'));
+  if(!imgItems.length) return;
+  e.preventDefault();
+  const files = imgItems.map(it=>it.getAsFile()).filter(Boolean);
+  await addFilesToGallery(files);
+  toast(`${files.length} image(s) collée(s) ✓`);
+});
 
 photosList.addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-act]'); if(!btn) return;
