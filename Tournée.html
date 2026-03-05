@@ -297,96 +297,23 @@
 const $ = (q)=>document.querySelector(q);
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
 function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
-function parseLocaleDate(s){ const d = new Date(s); return Number.isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 
-/* ===== IndexedDB (photos lourdes) ===== */
-const DB_NAME = 'TICP_Photos_DB';
-const DB_STORE = 'photos_v1';
-
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e)=>{
-      const db = e.target.result;
-      if(!db.objectStoreNames.contains(DB_STORE)){
-        db.createObjectStore(DB_STORE, { keyPath:'id' });
-      }
+/* Compresse une image en JPEG (max 1200px, qualité 0.72) pour économiser l'espace */
+function compressImage(dataUrl, maxPx=1200, quality=0.72){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1, maxPx/Math.max(img.width,img.height));
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(cv.toDataURL('image/jpeg',quality));
     };
-    req.onsuccess = ()=> resolve(req.result);
-    req.onerror = ()=> reject(req.error);
+    img.onerror=()=>resolve(dataUrl); // fallback sans compression
+    img.src=dataUrl;
   });
 }
-
-async function dbPutPhoto(rec){
-  const db = await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    tx.oncomplete = ()=> resolve(true);
-    tx.onerror = ()=> reject(tx.error);
-    tx.objectStore(DB_STORE).put(rec);
-  });
-}
-
-async function dbGetPhoto(id){
-  const db = await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(DB_STORE, 'readonly');
-    const req = tx.objectStore(DB_STORE).get(id);
-    req.onsuccess = ()=> resolve(req.result || null);
-    req.onerror = ()=> reject(req.error);
-  });
-}
-
-async function dbDeletePhoto(id){
-  const db = await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const req = tx.objectStore(DB_STORE).delete(id);
-    req.onsuccess = ()=> resolve(true);
-    req.onerror = ()=> reject(req.error);
-  });
-}
-
-async function dbClearAllPhotos(){
-  const db = await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const req = tx.objectStore(DB_STORE).clear();
-    req.onsuccess = ()=> resolve(true);
-    req.onerror = ()=> reject(req.error);
-  });
-}
-
-function fileToArrayBuffer(file){
-  return file.arrayBuffer();
-}
-
-function arrayBufferToDataURL(ab, mime='image/jpeg'){
-  return new Promise((resolve,reject)=>{
-    const blob = new Blob([ab], {type:mime});
-    const r = new FileReader();
-    r.onload = ()=> resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-
-function dataURLToArrayBuffer(dataUrl){
-  const parts = String(dataUrl||'').split(',');
-  if(parts.length<2) return null;
-  const meta = parts[0];
-  const b64  = parts[1];
-  const mime = (meta.match(/data:([^;]+)/i)||[])[1] || 'image/jpeg';
-  const bin = atob(b64);
-  const len = bin.length;
-  const bytes = new Uint8Array(len);
-  for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
-  return {ab:bytes.buffer, mime};
-}
-
-function newId(){
-  return (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('id_'+Math.random().toString(16).slice(2)+Date.now());
-}
+function parseLocaleDate(s){ const d = new Date(s); return Number.isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 
 /* ===== Panneau ===== */
 const panel = $('#panel');
@@ -546,7 +473,65 @@ mapContainer.addEventListener('wheel', e=>{
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
 const zonePoints=Object.keys(coords).filter(k=>/^Z\d+$/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
 const STORE_KEY='zoneReports.v3';
-let reports={}; try{ reports=JSON.parse(localStorage.getItem(STORE_KEY)||'{}')||{} }catch{ reports={} }
+const IDB_NAME='TICPTournee'; const IDB_VER=1; const IDB_STORE='reports';
+let reports={};
+let _idb=null;
+
+/* ===== IndexedDB helpers ===== */
+function openIDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,IDB_VER);
+    req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE); };
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function idbGet(key){
+  const db=await openIDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const req=tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function idbSet(key,value){
+  const db=await openIDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    const req=tx.objectStore(IDB_STORE).put(value,key);
+    req.onsuccess=()=>res();
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function idbDel(key){
+  const db=await openIDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    const req=tx.objectStore(IDB_STORE).delete(key);
+    req.onsuccess=()=>res();
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function saveReports(){
+  try{ await idbSet(STORE_KEY, reports); }
+  catch(err){ console.error('IDB save error',err); toast('Erreur sauvegarde (stockage plein ?)'); }
+}
+async function loadReports(){
+  try{
+    // Tentative migration depuis localStorage
+    const legacy=localStorage.getItem(STORE_KEY);
+    if(legacy){
+      try{ reports=JSON.parse(legacy)||{}; }catch{ reports={}; }
+      await idbSet(STORE_KEY, reports);
+      localStorage.removeItem(STORE_KEY);
+      toast('Données migrées vers stockage étendu ✓');
+      return;
+    }
+    const stored=await idbGet(STORE_KEY);
+    reports = stored || {};
+  }catch(err){ console.error('IDB load error',err); reports={}; }
+}
 const isZoneDone=z=>!!reports[z];
 
 function drawAll(){
@@ -716,7 +701,7 @@ const titleEl=$('#zoneTitle'), subEl=$('#zoneSubtitle'), chipEl=$('#scoreChip');
 const checksContainers=()=>[...document.querySelectorAll('.checks')];
 let currentZone=null, gravite=false;
 
-let photosLocal=[]; // [{id, comment, ts}]  (blobs stockés dans IndexedDB)
+let photosLocal=[]; // [{dataUrl, comment, ts}]
 const photosInput = document.getElementById('photosInput');
 const photosList  = document.getElementById('photosList');
 const btnAddFromCam = document.getElementById('btnAddFromCam');
@@ -725,17 +710,14 @@ async function addFilesToGallery(fileList){
   const files = Array.from(fileList||[]);
   for(const f of files){
     try{
-      const id = newId();
-      const ab = await fileToArrayBuffer(f);
-      const mime = f.type || 'image/jpeg';
-      await dbPutPhoto({ id, ab, mime, ts: Date.now() });
-      photosLocal.push({ id, comment:'', ts: Date.now(), mime });
+      const raw = await fileToDataURL(f);
+      const dataUrl = await compressImage(raw);
+      photosLocal.push({ dataUrl, comment:'', ts: Date.now() });
     }catch(_){}
   }
   renderPhotos();
 }
-
-async function renderPhotos(){
+function renderPhotos(){
   if(!photosLocal.length){
     photosList.classList.add('muted');
     photosList.innerHTML = 'Aucune photo pour le moment';
@@ -743,22 +725,12 @@ async function renderPhotos(){
   }
   photosList.classList.remove('muted');
   photosList.innerHTML = '';
-
-  for(let idx=0; idx<photosLocal.length; idx++){
-    const p = photosLocal[idx];
-    const rec = p?.id ? await dbGetPhoto(p.id) : null;
-    let url = '';
-    if(rec && rec.ab){
-      try{
-        const blob = new Blob([rec.ab], {type: rec.mime || p.mime || 'image/jpeg'});
-        url = URL.createObjectURL(blob);
-      }catch(_){ url=''; }
-    }
-
+  photosLocal.forEach((p,idx)=>{
     const card = document.createElement('div');
     card.className = 'photo-card';
+    const safeSrc = (typeof p.dataUrl==='string' && p.dataUrl.startsWith('data:')) ? p.dataUrl : '';
     card.innerHTML = `
-      <img src="${url}" alt="Écart ${idx+1}">
+      <img src="${safeSrc}" alt="Écart ${idx+1}">
       <textarea placeholder="Commentaire de la photo...">${p.comment||''}</textarea>
       <div class="row photo-actions">
         <span class="muted">#${idx+1} • ${new Date(p.ts).toLocaleString()}</span>
@@ -768,41 +740,28 @@ async function renderPhotos(){
         </div>
       </div>
     `;
-    const imgEl = card.querySelector('img');
-    if(!url){
-      imgEl.removeAttribute('src');
-      imgEl.style.background = '#f3f4f6';
-    }
-    card.querySelector('textarea').addEventListener('input', ()=>{
-      photosLocal[idx].comment = card.querySelector('textarea').value;
-    });
-    imgEl.addEventListener('click',()=> { if(url) openLightboxFromSrc(url); });
-
+    card.querySelector('textarea').addEventListener('input', ()=>{ photosLocal[idx].comment = card.querySelector('textarea').value; });
+    card.querySelector('img').addEventListener('click',()=> { if(safeSrc) openLightboxFromSrc(safeSrc); });
     photosList.appendChild(card);
-  }
+  });
 }
-
+photosInput.addEventListener('change', (e)=> addFilesToGallery(e.target.files));
 btnAddFromCam.addEventListener('click', ()=>{ photosInput.setAttribute('capture','environment'); photosInput.click(); });
 
 photosList.addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-act]'); if(!btn) return;
   const idx = parseInt(btn.dataset.idx,10); if(Number.isNaN(idx)) return;
-  const item = photosLocal[idx];
-
   if(btn.dataset.act === 'delete'){
-    if(item?.id) await dbDeletePhoto(item.id);
-    photosLocal.splice(idx,1);
-    renderPhotos();
+    photosLocal.splice(idx,1); renderPhotos();
   }else if(btn.dataset.act === 'replace'){
     const tmp = document.createElement('input');
     tmp.type='file'; tmp.accept='image/*'; tmp.capture='environment';
     tmp.addEventListener('change', async ()=>{
-      if(tmp.files && tmp.files[0] && item?.id){
-        const ab = await fileToArrayBuffer(tmp.files[0]);
-        const mime = tmp.files[0].type || 'image/jpeg';
-        await dbPutPhoto({ id:item.id, ab, mime, ts: Date.now() });
+      if(tmp.files && tmp.files[0]){
+        const raw = await fileToDataURL(tmp.files[0]);
+        const dataUrl = await compressImage(raw);
+        photosLocal[idx].dataUrl = dataUrl;
         photosLocal[idx].ts = Date.now();
-        photosLocal[idx].mime = mime;
         renderPhotos();
       }
     });
@@ -823,7 +782,7 @@ function openZoneForm(zone){
     checksContainers().forEach(c=>{ const key=c.dataset.key, idx=idxByKey[key]; if(Number.isInteger(idx)&&idx>=0&&idx<=3){ c.querySelectorAll('input')[idx].checked=true; }});
     if(saved.gravite){ gravite=true; $('#btnGravite').classList.add('on'); }
     if(saved.photos && Array.isArray(saved.photos)){
-      photosLocal = saved.photos.map(p=>({ id:p.id, comment:p.comment||'', ts:p.ts||Date.now(), mime:p.mime||'image/jpeg' }));
+      photosLocal = saved.photos.map(p=>({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() }));
       renderPhotos();
     }
   }
@@ -851,12 +810,12 @@ function computeRawTotalAndDetail(){ let total=0, detail={};
 function adjustedScore(raw){ return gravite ? raw/5 : raw; }
 function updateTotalChip(){ const {raw}=computeRawTotalAndDetail(); const adj=adjustedScore(raw); chipEl.textContent=`Total : ${Math.round(adj)} / 100`+(gravite?' (gravité)':''); }
 
-$('#btnSaveZone').addEventListener('click', ()=>{
+$('#btnSaveZone').addEventListener('click', async ()=>{
   if(!currentZone) return;
   const {raw,detail}=computeRawTotalAndDetail();
   const totalAdj=Math.round(adjustedScore(raw));
-  reports[currentZone]={scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.map(p=>({ id:p.id, comment:p.comment||'', ts:p.ts||Date.now(), mime:p.mime||'image/jpeg' }))};
-  localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+  reports[currentZone]={scores:detail, total:totalAdj, gravite:!!gravite, savedAt:Date.now(), photos:photosLocal.slice(0)};
+  await saveReports();
   toast(`Fiche ${currentZone} enregistrée (${totalAdj} / 100${gravite?' • gravité':''})`);
   closeZoneForm(); drawAll();
 });
@@ -905,22 +864,21 @@ function renderStats(){
 }
 
 /* ===== Réinitialiser ===== */
-document.getElementById('btnResetAll').addEventListener('click', ()=>{
+document.getElementById('btnResetAll').addEventListener('click', async ()=>{
   const confirmMsg = 'Confirmer la réinitialisation ?\nToutes les fiches enregistrées seront supprimées.';
   if(!confirm(confirmMsg)) return;
-  localStorage.removeItem(STORE_KEY);
+  await idbDel(STORE_KEY);
   reports = {};
-  dbClearAllPhotos().catch(()=>{});
   toast('Tournée réinitialisée.');
   drawAll();
   if(statsModal.classList.contains('open')) renderStats();
 });
 
 /* ===== Export XLS (HTML) ===== */
-document.getElementById('btnExportXls').addEventListener('click', ()=>{ exportXls(); });
+document.getElementById('btnExportXls').addEventListener('click', exportXls);
 function idxToPct(idx){ return (idx===0?1:idx===1?0.75:idx===2?0.5:idx===3?0.25:0); }
 function scoreFromIdx(max, idx){ return (idx>=0) ? Math.round(max * idxToPct(idx)) : 0; }
-async function buildExport(){
+function buildExport(){
   const criteriaMax = {proprete:10, affiches:10, accessibilite:10, tri:40, bennes:20, depart:10};
   const rows=[];  const photosRows=[];
   ZONES_ALL.forEach(z=>{
@@ -947,21 +905,14 @@ async function buildExport(){
         Index:i+1,
         Date: new Date(p.ts||r.savedAt||Date.now()).toLocaleString(),
         Commentaire:p.comment||'',
-        DataUrl:'', _id:(p.id||'')
+        DataUrl:p.dataUrl
       });
     });
   });
   return {rows, photosRows};
 }
-async function exportXls(){
-  const {rows, photosRows} = await buildExport();
-  // Remplir les images depuis IndexedDB (si présentes)
-  for(const pr of photosRows){
-    const rec = pr._id ? await dbGetPhoto(pr._id) : null;
-    if(rec && rec.ab){
-      pr.DataUrl = await arrayBufferToDataURL(rec.ab, rec.mime||'image/jpeg');
-    }
-  }
+function exportXls(){
+  const {rows, photosRows} = buildExport();
   if(!rows.length){ toast('Aucune fiche à exporter.'); return; }
   const totalAll = rows.reduce((a,b)=>a+(b.Total||0),0);
   const avgAll   = Math.round(totalAll / rows.length);
@@ -1019,9 +970,7 @@ let lbScale = 1, lbX = 0, lbY = 0, lbDrag = false, lbLX = 0, lbLY = 0;
 
 function applyLbTransform(){ lbImg.style.transform = `translate(${lbX}px, ${lbY}px) scale(${lbScale})`; }
 function openLightboxFromSrc(src){
-  if(!src || typeof src!=='string'){ toast('Image indisponible'); return; }
-  const ok = src.startsWith('data:') || src.startsWith('blob:');
-  if(!ok){ toast('Image indisponible'); return; }
+  if(!src || typeof src!=='string' || !src.startsWith('data:')){ toast('Image indisponible'); return; }
   lbImg.src = src; lbScale = 1; lbX = 0; lbY = 0; applyLbTransform();
   lightbox.style.display = 'flex';
   lightbox.setAttribute('aria-hidden','false');
@@ -1059,12 +1008,12 @@ document.getElementById('fileImport').addEventListener('change', async (e)=>{
     try{
       if (/\.(xlsx)$/i.test(f.name)){
         const {zones, photos} = await importFromXlsx(f);
-        const r = await mergeIntoReports(zones, photos);
+        const r = mergeIntoReports(zones, photos);
         importedZones += r.zonesAdded; importedPhotos += r.photosAdded; overwritten += r.overwritten; skippedNoPhoto += r.skipped;
       } else if (/\.(xls)$/i.test(f.name)){
         const text = await f.text();
         const {zones, photos} = importFromXlsHtml(text);
-        const r = await mergeIntoReports(zones, photos);
+        const r = mergeIntoReports(zones, photos);
         importedZones += r.zonesAdded; importedPhotos += r.photosAdded; overwritten += r.overwritten; skippedNoPhoto += r.skipped;
       } else {
         toast(`Format non pris en charge: ${f.name}`);
@@ -1075,7 +1024,7 @@ document.getElementById('fileImport').addEventListener('change', async (e)=>{
     }
   }
 
-  localStorage.setItem(STORE_KEY, JSON.stringify(reports));
+  await saveReports();
   drawAll(); if(statsModal.classList.contains('open')) renderStats();
 
   toast(`Fusion OK • Zones+${importedZones} (écrasées ${overwritten}) • Photos+${importedPhotos}${skippedNoPhoto?` • Sans photo:${skippedNoPhoto}`:''}`);
@@ -1172,37 +1121,34 @@ function importFromXlsHtml(htmlText){
     }
   }
 
-  // Photos : table avec <img src="data:...">
   for(const table of tables){
     const headers = Array.from(table.querySelectorAll('thead tr th')).map(th=>th.textContent.trim());
-    if(headers.length && headers.includes('Zone') && headers.includes('Commentaire') && headers.includes('Image')){
+    if(headers.length && headers.includes('Image') && headers.includes('Zone')){
       const idxZone = headers.indexOf('Zone');
       const idxCom  = headers.indexOf('Commentaire');
-      const idxDate = headers.indexOf('Date');
-      const idxImg  = headers.indexOf('Image');
       table.querySelectorAll('tbody tr').forEach(tr=>{
         const tds = Array.from(tr.children);
         const z = (tds[idxZone]?.textContent||'').trim();
         if(!/^Z\d+$/i.test(z)) return;
         const comment = (tds[idxCom]?.textContent||'').trim();
-        const dateStr = (tds[idxDate]?.textContent||'').trim();
-        const ts = parseLocaleDate(dateStr);
-        const img = tds[idxImg]?.querySelector('img');
-        const dataUrl = img?.getAttribute('src') || '';
-        if(dataUrl && /^data:/i.test(dataUrl)){
+        const img = tds[tds.length-1]?.querySelector('img');
+        const src = img?.getAttribute('src')||'';
+        if(src && src.startsWith('data:')){
+          const ts = Date.now();
           if(!photos.has(z)) photos.set(z,[]);
-          photos.get(z).push({ dataUrl, comment, ts });
+          photos.get(z).push({dataUrl:src, comment, ts});
         }
       });
     }
   }
-
   return {zones, photos};
 }
 
-/* ---- MERGE (photos -> IndexedDB) ---- */
-async function mergeIntoReports(zonesMap, photosMap){
+/* ---- Fusion dans reports ---- */
+function mergeIntoReports(zonesMap, photosMap){
   let zonesAdded=0, photosAdded=0, overwritten=0, skipped=0;
+  const dedup = new Set();
+  for(const r of Object.values(reports)){ (r.photos||[]).forEach(p=>{ if(p?.dataUrl) dedup.add(p.dataUrl); }); }
 
   zonesMap.forEach((zData, zName)=>{
     const incoming = {
@@ -1223,30 +1169,20 @@ async function mergeIntoReports(zonesMap, photosMap){
 
     const ph = photosMap.get(zName)||[];
     if(ph.length===0){ skipped++; }
+    ph.forEach(p=>{
+      if(p?.dataUrl && !dedup.has(p.dataUrl)){
+        reports[zName].photos.push({ dataUrl:p.dataUrl, comment:p.comment||'', ts:p.ts||Date.now() });
+        dedup.add(p.dataUrl);
+        photosAdded++;
+      }
+    });
   });
-
-  // Import photos (dataUrl -> IndexedDB)
-  for(const [zName, ph] of photosMap.entries()){
-    if(!reports[zName]) continue;
-    for(const p of (ph||[])){
-      const dataUrl = (p && p.dataUrl) ? String(p.dataUrl).trim() : '';
-      if(!dataUrl || !/^data:/i.test(dataUrl)) continue;
-
-      const conv = dataURLToArrayBuffer(dataUrl);
-      if(!conv) continue;
-
-      const id = newId();
-      await dbPutPhoto({ id, ab: conv.ab, mime: conv.mime, ts: p.ts||Date.now() });
-      reports[zName].photos.push({ id, comment: p.comment||'', ts: p.ts||Date.now(), mime: conv.mime });
-      photosAdded++;
-    }
-  }
 
   return {zonesAdded, photosAdded, overwritten, skipped};
 }
 
 /* ===== Init ===== */
-function init(){ initChoices(); fitAndCenter(); }
+async function init(){ await loadReports(); initChoices(); fitAndCenter(); drawAll(); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
