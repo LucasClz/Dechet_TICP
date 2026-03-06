@@ -735,8 +735,30 @@ function drawAll(){
   }
   for(const zp of zonePoints){
     const p=imgToScreen(zp);
-    ctx.beginPath(); ctx.arc(p.x,p.y,zp.r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle=isZoneDone(zp.zone)?'#10b981':'#ef4444'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fillStyle=isZoneDone(zp.zone)?'rgba(16,185,129,.6)':'rgba(239,68,68,.5)'; ctx.fill();
+    const done=isZoneDone(zp.zone);
+    const r=zp.r;
+
+    // Cercle de fond semi-transparent
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.fillStyle=done?'rgba(16,185,129,.18)':'rgba(239,68,68,.15)'; ctx.fill();
+
+    // Cercle contour
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.lineWidth=2.5; ctx.strokeStyle=done?'#10b981':'#ef4444'; ctx.stroke();
+
+    // Numéro de zone en rouge au centre
+    const label=zp.zone.replace(/^Z/i,''); // "Z12" → "12"
+    const fontSize=Math.max(8, Math.min(13, r*1.1));
+    ctx.save();
+    ctx.font=`bold ${fontSize}px Inter,sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    // Halo blanc pour lisibilité
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(255,255,255,.85)';
+    ctx.strokeText(label, p.x, p.y);
+    // Texte rouge
+    ctx.fillStyle='#dc2626';
+    ctx.fillText(label, p.x, p.y);
+    ctx.restore();
   }
   for(const h of hotspots){ const p=imgToScreen(h); ctx.beginPath(); ctx.arc(p.x,p.y,(h.r||12),0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle='#ef4444'; ctx.stroke(); }
   if(userPos){
@@ -1828,10 +1850,26 @@ function renderAdminMap(){
   // Zones
   ZONES_ALL.filter(z=>coords[z]).forEach(z=>{
     const px=ox+coords[z].x*s, py=oy+coords[z].y*s;
-    ctx2.beginPath(); ctx2.arc(px,py,7,0,Math.PI*2);
-    ctx2.fillStyle='rgba(230,0,126,.7)'; ctx2.fill();
-    ctx2.font=`bold ${Math.max(8,9*s)}px Inter,sans-serif`; ctx2.fillStyle='#fff'; ctx2.textAlign='center'; ctx2.textBaseline='middle';
-    ctx2.fillText(z,px,py);
+    const r=Math.max(7, 12*s);
+
+    // Fond
+    ctx2.beginPath(); ctx2.arc(px,py,r,0,Math.PI*2);
+    ctx2.fillStyle='rgba(239,68,68,.15)'; ctx2.fill();
+    // Contour
+    ctx2.beginPath(); ctx2.arc(px,py,r,0,Math.PI*2);
+    ctx2.lineWidth=2; ctx2.strokeStyle='#ef4444'; ctx2.stroke();
+
+    // Numéro en rouge
+    const label=z.replace(/^Z/i,'');
+    const fontSize=Math.max(7, Math.min(12, r*1.1));
+    ctx2.save();
+    ctx2.font=`bold ${fontSize}px Inter,sans-serif`;
+    ctx2.textAlign='center'; ctx2.textBaseline='middle';
+    ctx2.lineWidth=2.5; ctx2.strokeStyle='rgba(255,255,255,.85)';
+    ctx2.strokeText(label, px, py);
+    ctx2.fillStyle='#dc2626';
+    ctx2.fillText(label, px, py);
+    ctx2.restore();
   });
 }
 
