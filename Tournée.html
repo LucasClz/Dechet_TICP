@@ -117,6 +117,34 @@
   .lightbox img{max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 0 20px rgba(0,0,0,.6);transform-origin:center}
   .lightbox .toolbar{position:absolute;top:16px;left:16px;display:flex;gap:8px}
   .lightbox .close{position:absolute;top:16px;right:16px}
+
+  /* ===== Modal Admin ===== */
+  .modal.admin{width:min(900px,98vw);height:100%}
+  .admin-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:#f9fafb}
+  .admin-tab{padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;color:var(--muted);transition:.15s}
+  .admin-tab.active{color:var(--brand);border-bottom-color:var(--brand);background:#fff}
+  .admin-pane{display:none;padding:14px 16px;overflow:auto;flex:1}
+  .admin-pane.active{display:flex;flex-direction:column;gap:12px}
+  .admin-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .zone-list{display:grid;gap:6px;max-height:calc(100vh - 280px);overflow-y:auto}
+  .zone-row{display:grid;grid-template-columns:70px 1fr 90px 90px 36px;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px}
+  .zone-row:hover{border-color:#d1d5db}
+  .zone-row input,.zone-row select{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;width:100%}
+  .zone-row .coord-badge{font-size:11px;color:var(--muted);text-align:center;cursor:pointer;padding:4px;border:1px dashed var(--line);border-radius:6px;white-space:nowrap}
+  .zone-row .coord-badge:hover{border-color:var(--brand);color:var(--brand)}
+  .zone-row .coord-badge.picking{border-color:#f59e0b;color:#f59e0b;background:#fffbeb}
+  .group-list{display:grid;gap:6px}
+  .group-row{display:grid;grid-template-columns:100px 1fr 36px;gap:6px;align-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .group-row input,.group-row textarea{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;width:100%}
+  .map-preview-wrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0b1020;flex-shrink:0}
+  .admin-section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+  .badge-info{background:#eef2ff;color:#3730a3;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600}
+  .dechet-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .dechet-tag{background:#f3f4f6;border:1px solid var(--line);border-radius:999px;font-size:11px;padding:2px 8px;display:flex;align-items:center;gap:4px}
+  .dechet-tag button{background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px;padding:0;line-height:1}
+  .dechet-tag button:hover{color:#ef4444}
+  .zone-edit-panel{border:1px solid var(--line);border-radius:10px;padding:12px;background:#f9fafb;display:none;flex-direction:column;gap:10px}
+  .zone-edit-panel.open{display:flex}
 </style>
 </head>
 <body>
@@ -133,6 +161,7 @@
         <input id="fileImport" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="display:none"/>
 
         <button class="btn secondary small" id="btnExportXls" title="Exporter la tournée au format .xlsx">Exporter XLSX</button>
+        <button class="btn secondary small" id="btnAdmin" title="Paramètres administrateur">⚙ Admin</button>
         <button class="btn danger small" id="btnResetAll" title="Tout remettre à zéro">Réinitialiser</button>
         <span class="chip" id="chipGps">GPS: off</span>
         <span class="chip" id="chipCompass">Boussole: off</span>
@@ -298,6 +327,109 @@
   <img id="lightboxImg" src="" alt="Agrandissement">
 </div>
 
+<!-- MODAL ADMIN -->
+<section class="modal admin" id="adminModal" aria-hidden="true">
+  <header>
+    <div style="font-weight:700">⚙ Administration — Configuration</div>
+    <div class="row">
+      <label class="btn secondary small" for="adminJsonImport" title="Charger un fichier config.json">📂 Charger JSON</label>
+      <input id="adminJsonImport" type="file" accept=".json,application/json" style="display:none"/>
+      <button class="btn small" id="btnAdminExportJson" title="Télécharger config.json">💾 Exporter JSON</button>
+      <button class="btn secondary small" id="btnAdminResetDefault">Valeurs par défaut</button>
+      <button class="btn secondary small" id="btnCloseAdmin">Fermer</button>
+    </div>
+  </header>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-pane="zones">Zones déchets</button>
+    <button class="admin-tab" data-pane="emplacements">Emplacements</button>
+    <button class="admin-tab" data-pane="groupes">Groupes</button>
+    <button class="admin-tab" data-pane="plan">Plan du site</button>
+  </div>
+
+  <!-- PANE : Zones déchets -->
+  <div class="admin-pane active" id="pane-zones">
+    <div class="admin-toolbar">
+      <input type="text" id="adminZoneSearch" placeholder="Rechercher une zone…" style="flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"/>
+      <button class="btn small" id="btnAdminAddZone">+ Ajouter une zone</button>
+    </div>
+    <div class="zone-list" id="adminZoneList"></div>
+
+    <!-- Panneau d'édition d'une zone -->
+    <div class="zone-edit-panel" id="zoneEditPanel">
+      <div style="font-weight:700;font-size:13px" id="zoneEditTitle">Édition zone</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field">
+          <label>Identifiant (ex: Z5)</label>
+          <input type="text" id="editZoneId" placeholder="Z1"/>
+        </div>
+        <div class="field">
+          <label>Groupe</label>
+          <select id="editZoneGroup"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Déchets acceptés</label>
+        <div class="row" style="flex-wrap:nowrap">
+          <input type="text" id="editDechetInput" placeholder="Ajouter un déchet…" style="flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"/>
+          <button class="btn small" id="btnAddDechet">Ajouter</button>
+        </div>
+        <div class="dechet-tags" id="editDechetTags"></div>
+      </div>
+      <div class="field">
+        <label>Position sur le plan</label>
+        <div class="row">
+          <input type="number" id="editCoordX" placeholder="X" style="width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"/>
+          <input type="number" id="editCoordY" placeholder="Y" style="width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"/>
+          <button class="btn secondary small" id="btnPickCoord">🎯 Cliquer sur le plan</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnSaveZoneEdit">Enregistrer</button>
+        <button class="btn secondary" id="btnCancelZoneEdit">Annuler</button>
+        <button class="btn danger small" id="btnDeleteZoneEdit" style="margin-left:auto">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANE : Emplacements (points non-zone) -->
+  <div class="admin-pane" id="pane-emplacements">
+    <div class="admin-toolbar">
+      <input type="text" id="adminEmpSearch" placeholder="Rechercher un emplacement…" style="flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"/>
+      <button class="btn small" id="btnAdminAddEmp">+ Ajouter un emplacement</button>
+    </div>
+    <div class="zone-list" id="adminEmpList"></div>
+  </div>
+
+  <!-- PANE : Groupes -->
+  <div class="admin-pane" id="pane-groupes">
+    <div class="admin-toolbar">
+      <button class="btn small" id="btnAdminAddGroup">+ Ajouter un groupe</button>
+    </div>
+    <div class="group-list" id="adminGroupList"></div>
+  </div>
+
+  <!-- PANE : Plan -->
+  <div class="admin-pane" id="pane-plan">
+    <div class="field">
+      <div class="admin-section-title">Image du plan de site</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <label class="btn secondary small" for="adminMapImport">📷 Charger une image</label>
+        <input id="adminMapImport" type="file" accept="image/*" style="display:none"/>
+        <span class="muted" id="adminMapInfo">Aucune image personnalisée chargée</span>
+      </div>
+      <div class="muted" style="margin-top:6px">Formats acceptés : PNG, JPG, WebP. L'image est embarquée en base64 dans le fichier config.json.</div>
+    </div>
+    <div class="field">
+      <div class="admin-section-title">Aperçu avec zones</div>
+      <div class="map-preview-wrap" id="adminMapPreview" style="height:320px">
+        <canvas id="adminCanvas" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="modal-backdrop" id="adminBackdrop" aria-hidden="true"></div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
@@ -331,74 +463,120 @@ const panel = $('#panel');
 $('#btnTogglePanel').addEventListener('click', ()=> panel.classList.toggle('open'));
 $('#btnClosePanel').addEventListener('click', ()=> panel.classList.remove('open'));
 
-/* ===== Données ===== */
-const coords = {
-  "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
-  "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
-  "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
-  "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
-  "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
-  "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
-  "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
-  "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
-  "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
-  "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
-  "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
-  "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
-  "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
-  "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
-  "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
-  "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
-  "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
-  "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
-  "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
-  "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
-  "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
-  "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
-  "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
-  "Bureau Administratif":{x:1524,y:152}
+/* ===== Configuration (chargée depuis config.json ou IndexedDB) ===== */
+const CONFIG_IDB_KEY = 'appConfig.v1';
+
+// Structure par défaut — sera remplacée par le fichier JSON si disponible
+let coords = {};
+let dechetsParZone = {};
+let GROUPS = {};
+let ZONES_ALL = [];
+
+function rebuildDerivedData(){
+  ZONES_ALL = Object.keys(dechetsParZone).filter(k=>/^Z\d+$/i.test(k)).sort((a,b)=>{
+    return parseInt(a.slice(1))-parseInt(b.slice(1));
+  });
+  zonePoints = ZONES_ALL.filter(z=>coords[z]).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
+}
+
+function configToJson(cfg){
+  return JSON.stringify(cfg, null, 2);
+}
+
+async function saveConfig(cfg){
+  await idbSet(CONFIG_IDB_KEY, cfg);
+}
+
+async function loadConfig(){
+  try{
+    const stored = await idbGet(CONFIG_IDB_KEY);
+    if(stored && stored.coords){
+      applyConfig(stored); return;
+    }
+  }catch(_){}
+  // Données embarquées par défaut (reprises de l'original)
+  applyConfig(DEFAULT_CONFIG);
+  await saveConfig(DEFAULT_CONFIG);
+}
+
+function applyConfig(cfg){
+  coords        = cfg.coords        || {};
+  dechetsParZone= cfg.dechetsParZone|| {};
+  GROUPS        = cfg.groups        || {};
+  if(cfg.mapSrc) document.getElementById('mapImage').src = cfg.mapSrc;
+  rebuildDerivedData();
+}
+
+/* ===== Données par défaut ===== */
+const DEFAULT_CONFIG = {
+  mapSrc: "TICP.png",
+  coords: {
+    "MR5 Atelier2":{x:243,y:684},"MR15":{x:301,y:606},"MR13":{x:312,y:577},
+    "MR6 Enduis et Peinture":{x:400,y:600},"MR13 Atelier 4":{x:392,y:648},"MR1":{x:392,y:704},
+    "MR13 Atelier5":{x:461,y:728},"MR5 Atelier23":{x:369,y:763},"MR3 Voie 35D":{x:552,y:554},
+    "MR6 KD Lavage":{x:536,y:505},"MR4 Atelier6":{x:854,y:419},"BUMR":{x:790,y:460},
+    "MR2 - MR13":{x:680,y:665},"MR2 Porte":{x:665,y:711},"MR2 Fenêtre":{x:670,y:747},
+    "MR2 Etabli":{x:738,y:747},"MR3":{x:774,y:659},"MR2 HUB":{x:852,y:685},
+    "MR7 Peinture + ponçage":{x:953,y:607},"MR7 préparation":{x:934,y:749},"CABOUT":{x:1034,y:688},
+    "PRM11":{x:1028,y:745},"PRM4":{x:1189,y:747},"PRM5 Compresseur":{x:1258,y:692},
+    "PRM10 Rechauffeur":{x:1325,y:678},"PRM1 MVT":{x:1321,y:740},"PRM3":{x:1336,y:532},
+    "PRM2":{x:1322,y:428},"PRM7 Atelier12":{x:1280,y:345},"PRM6 CAPA":{x:1203,y:331},
+    "PRM6 Blow WC":{x:1496,y:730},"PRM6 Pièces sanitaire":{x:1474,y:665},"PRM6 Lavage":{x:1468,y:608},
+    "SC2 Amont CT10":{x:1452,y:490},"SC2 Magasin":{x:1596,y:499},"SC2 Réception":{x:1527,y:420},
+    "SC Kitting":{x:1534,y:355},"MR8 Grenailleuse":{x:1504,y:249},"Bogies":{x:1670,y:287},
+    "MABOR":{x:1804,y:282},"PRM8":{x:1732,y:733},
+    "Z1":{x:1875,y:584},"Z2":{x:1814,y:755},"Z3":{x:1768,y:366},"Z4":{x:1634,y:379},
+    "Z5":{x:1602,y:182},"Z6":{x:1416,y:382},"Z7":{x:1529,y:492},"Z8":{x:1415,y:448},
+    "Z9":{x:1419,y:617},"Z10":{x:1590,y:676},"Z11":{x:1415,y:734},"Z12":{x:1205,y:204},
+    "Z13":{x:1285,y:412},"Z14":{x:1111,y:371},"Z15":{x:1200,y:603},"Z16":{x:1026,y:620},
+    "Z17":{x:1122,y:644},"Z18":{x:1048,y:544},"Z19":{x:921,y:329},"Z20":{x:834,y:378},
+    "Z21":{x:710,y:415},"Z22":{x:704,y:600},"Z23":{x:865,y:608},"Z24":{x:735,y:714},
+    "Z25":{x:965,y:728},"Z26":{x:785,y:791},"Z27":{x:602,y:788},"Z28":{x:478,y:433},
+    "Z29":{x:442,y:511},"Z30":{x:317,y:547},"Z31":{x:212,y:600},"Z32":{x:1156,y:738},
+    "Z33":{x:292,y:689},"Z34":{x:511,y:685},"Z35":{x:1534,y:329},"Z36":{x:1119,y:598},
+    "Bureau Administratif":{x:1524,y:152}
+  },
+  dechetsParZone: {
+    Z1:["Bois","Carton","Bac noir","Plastique"],
+    Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
+    Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
+    Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
+    Z5:["Bac noir","Bac jaune","Carton","Cartouche d'encre"],
+    Z6:["Bac noir","Bac jaune"],Z7:["Bac noir","Plastique"],
+    Z8:["Bois","Carton","Ferreux","Polystyrène","Plastique","Bac jaune","Bac noir"],
+    Z9:["Carton","Bois","Bac noir","Réhausses KC"],
+    Z10:["Aérosols","Bac noir","Non ferreux","Carton"],
+    Z11:["Carton","Bois","Polystyrène","Plastique","DEEE","Non ferreux","Réhausses KC","Aérosols","Pélican","Bac jaune","Ferreux","Caoutchouc","Geobox Déchets dangereux"],
+    Z12:["Bac noir","Bac jaune"],
+    Z13:["Piles et Accumulateur","Geobox Déchets dangereux","Aérosols","Ferreux","Cuivre","Non ferreux","DEEE","Caoutchouc","Huile usagées"],
+    Z14:["Aérosols","Ferreux","Non ferreux","Bac noir","Bac jaune","Geobox Déchets dangereux","Carton","Bois","Réhausses KC"],
+    Z15:["DEEE","Carton","Non ferreux","Ferreux","Plastique","Polystyrène","Bac noir"],
+    Z16:["Piles et Accumulateur","Cartouche d'encre","Vêtements usagées","Bac noir","Aérosols","DEEE","Carton","Bac jaune"],
+    Z17:["DEEE","Aérosols","Bac noir","Geobox Déchets dangereux","Huile usagées"],
+    Z18:["Bois","Carton","Ferreux","Non ferreux","Bac noir","Bac jaune","Verre","Déchets non dangereux"],
+    Z19:["Bac noir"],
+    Z20:["Ferreux","Non ferreux","Geobox Déchets dangereux","Bois","Carton","Plastique","Bac plomb"],
+    Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
+    Z22:["Geobox Déchets dangereux","Fût peinture"],
+    Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
+    Z24:["Caoutchouc","Pélican","Verre"],
+    Z25:["Geobox Déchets dangereux"],Z26:["Carton","Bois"],
+    Z27:["Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","Aérosols"],
+    Z28:["Ferreux","Bac noir","Fût filtres","Huile usagées"],
+    Z29:["Geobox Déchets dangereux"],
+    Z30:["Geobox Déchets dangereux","Pélican","Bac jaune","Carton","Bois","DEEE","Non ferreux","Ferreux","Aérosols","Amiante"],
+    Z31:["Bac noir","Bac jaune","Amiante"],
+    Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
+    Z33:["Amiante"],Z34:["Bac noir","Bac jaune"],Z35:["Bac noir","Bac jaune","Plastique","Carton"]
+  },
+  groups: {
+    BA:["Z5","Z12","Z19"],
+    MR:["Z3","Z14","Z17","Z18","Z20","Z21","Z22","Z23","Z24","Z25","Z26","Z27","Z28","Z29","Z30","Z31","Z33","Z34"],
+    MTN:["Z16"],
+    SC:["Z1","Z4","Z6","Z7","Z8","Z35"],
+    PRM:["Z2","Z9","Z10","Z11","Z13","Z15","Z32"]
+  }
 };
-const dechetsParZone = {
-  Z1:["Bois","Carton","Bac noir","Plastique"],
-  Z2:["Ferreux","Cuivre","Non ferreux","Caoutchouc","Bois","Carton","Condenseur","Geobox Déchets dangereux","Bac noir","Bac jaune","Aérosols","DEEE"],
-  Z3:["Carton","Bois","Réhausses KC","Geobox Déchets dangereux","Ferreux","Caoutchouc","Aérosols","Pélican","Huile usagées"],
-  Z4:["Carton","Bois","Geobox Déchets dangereux","Bac noir","Polystyrène","Réhausses KC"],
-  Z5:["Bac noir","Bac jaune","Carton","Cartouche d'encre"],
-  Z6:["Bac noir","Bac jaune"], Z7:["Bac noir","Plastique"],
-  Z8:["Bois","Carton","Ferreux","Polystyrène","Plastique","Bac jaune","Bac noir"],
-  Z9:["Carton","Bois","Bac noir","Réhausses KC"],
-  Z10:["Aérosols","Bac noir","Non ferreux","Carton"],
-  Z11:["Carton","Bois","Polystyrène","Plastique","DEEE","Non ferreux","Réhausses KC","Aérosols","Pélican","Bac jaune","Ferreux","Caoutchouc","Geobox Déchets dangereux"],
-  Z12:["Bac noir","Bac jaune"],
-  Z13:["Piles et Accumulateur","Geobox Déchets dangereux","Aérosols","Ferreux","Cuivre","Non ferreux","DEEE","Caoutchouc","Huile usagées"],
-  Z14:["Aérosols","Ferreux","Non ferreux","Bac noir","Bac jaune","Geobox Déchets dangereux","Carton","Bois","Réhausses KC"],
-  Z15:["DEEE","Carton","Non ferreux","Ferreux","Plastique","Polystyrène","Bac noir"],
-  Z16:["Piles et Accumulateur","Cartouche d'encre","Vêtements usagées","Bac noir","Aérosols","DEEE","Carton","Bac jaune"],
-  Z17:["DEEE","Aérosols","Bac noir","Geobox Déchets dangereux","Huile usagées"],
-  Z18:["Bois","Carton","Ferreux","Non ferreux","Bac noir","Bac jaune","Verre","Déchets non dangereux"],
-  Z19:["Bac noir"],
-  Z20:["Ferreux","Non ferreux","Geobox Déchets dangereux","Bois","Carton","Plastique","Bac plomb"],
-  Z21:["Verre","Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","DEEE","Pélican","Bac jaune","GRV Huiles","GRV Cool Elf"],
-  Z22:["Geobox Déchets dangereux","Fût peinture"],
-  Z23:["Ampoules","Néons","Aérosols","Bac noir","Bac jaune"],
-  Z24:["Caoutchouc","Pélican","Verre"],
-  Z25:["Geobox Déchets dangereux"], Z26:["Carton","Bois"],
-  Z27:["Bois","Carton","Ferreux","Non ferreux","Geobox Déchets dangereux","Plastique","Polystyrène","Aérosols"],
-  Z28:["Ferreux","Bac noir","Fût filtres","Huile usagées"],
-  Z29:["Geobox Déchets dangereux"],
-  Z30:["Geobox Déchets dangereux","Pélican","Bac jaune","Carton","Bois","DEEE","Non ferreux","Ferreux","Aérosols","Amiante"],
-  Z31:["Bac noir","Bac jaune","Amiante"],
-  Z32:["Geobox Déchets dangereux","Non ferreux","Ferreux"],
-  Z33:["Amiante"], Z34:["Bac noir","Bac jaune"], Z35:["Bac noir","Bac jaune","Plastique","Carton"]
-};
-const GROUPS = {
-  BA:["Z5","Z12","Z19"],
-  MR:["Z3","Z14","Z17","Z18","Z20","Z21","Z22","Z23","Z24","Z25","Z26","Z27","Z28","Z29","Z30","Z31","Z33","Z34"],
-  MTN:["Z16"],
-  SC:["Z1","Z4","Z6","Z7","Z8","Z35"],
-  PRM:["Z2","Z9","Z10","Z11","Z13","Z15","Z32"],
-};
-const ZONES_ALL = Array.from({length:35},(_,i)=>`Z${i+1}`);
 
 /* ===== UI : selects ===== */
 let choicesZone, choicesDechet;
@@ -482,7 +660,7 @@ mapContainer.addEventListener('wheel', e=>{
 
 /* ===== Dessin + état ===== */
 let route=null, hotspots=[], userPos=null; let headingDegRaw=null, headingSource='unknown'; let compassOffsetDeg=parseFloat(localStorage.getItem('compassOffsetDeg')||'0');
-const zonePoints=Object.keys(coords).filter(k=>/^Z\d+$/i.test(k)).map(z=>({zone:z, x:coords[z].x, y:coords[z].y, r:12}));
+let zonePoints=[];
 const STORE_KEY='zoneReports.v3';
 const IDB_NAME='TICPTournee'; const IDB_VER=1; const IDB_STORE='reports';
 let reports={};
@@ -1323,8 +1501,419 @@ function mergeIntoReports(zonesMap, photosMap){
   return {zonesAdded, photosAdded, overwritten, skipped};
 }
 
-/* ===== Init ===== */
-async function init(){ await loadReports(); initChoices(); fitAndCenter(); drawAll(); }
+/* ============================================================
+   ==================  ONGLET ADMINISTRATEUR  =================
+   ============================================================ */
+
+const adminModal   = $('#adminModal');
+const adminBackdrop= $('#adminBackdrop');
+
+$('#btnAdmin').addEventListener('click', openAdmin);
+$('#btnCloseAdmin').addEventListener('click', closeAdmin);
+adminBackdrop.addEventListener('click', closeAdmin);
+
+function openAdmin(){ renderAdminAll(); adminModal.classList.add('open'); adminModal.setAttribute('aria-hidden','false'); adminBackdrop.style.display='block'; }
+function closeAdmin(){ adminModal.classList.remove('open'); adminModal.setAttribute('aria-hidden','true'); adminBackdrop.style.display='none'; adminPickMode=null; }
+
+/* ---- Tabs ---- */
+document.querySelectorAll('.admin-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('pane-'+tab.dataset.pane).classList.add('active');
+    if(tab.dataset.pane==='plan') renderAdminMap();
+  });
+});
+
+/* ---- Éditeur de zone courant ---- */
+let adminEditingZone = null; // null = nouvelle, sinon clé existante
+let adminEditDechets = [];
+let adminPickMode    = null; // 'zone' | 'emp' | null
+
+/* ============ PANE ZONES ============ */
+function renderAdminZoneList(){
+  const search = $('#adminZoneSearch').value.toLowerCase();
+  const list = $('#adminZoneList'); list.innerHTML='';
+  const keys = Object.keys(dechetsParZone).filter(k=>/^Z\d+$/i.test(k))
+    .sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)))
+    .filter(k=>!search || k.toLowerCase().includes(search) || (dechetsParZone[k]||[]).some(d=>d.toLowerCase().includes(search)));
+
+  if(!keys.length){ list.innerHTML='<div class="muted" style="padding:10px">Aucune zone trouvée</div>'; return; }
+
+  keys.forEach(zone=>{
+    const grp = groupOf(zone);
+    const nb  = (dechetsParZone[zone]||[]).length;
+    const hasPt= !!coords[zone];
+    const row  = document.createElement('div');
+    row.className='zone-row'; row.style.gridTemplateColumns='70px 1fr 70px 70px 36px';
+    row.innerHTML=`
+      <strong>${zone}</strong>
+      <span style="font-size:12px;color:var(--muted)">${(dechetsParZone[zone]||[]).slice(0,4).join(', ')}${nb>4?` +${nb-4}`:''}</span>
+      <span class="badge-info">${grp}</span>
+      <span class="badge-info" style="${hasPt?'background:#d1fae5;color:#065f46':'background:#fee2e2;color:#991b1b'}">${hasPt?`(${coords[zone].x},${coords[zone].y})`:'Sans pos.'}</span>
+      <button class="btn secondary small" data-zone="${zone}" title="Éditer">✏️</button>
+    `;
+    row.querySelector('button').addEventListener('click', ()=>openZoneEdit(zone));
+    list.appendChild(row);
+  });
+}
+
+$('#adminZoneSearch').addEventListener('input', renderAdminZoneList);
+$('#btnAdminAddZone').addEventListener('click', ()=>openZoneEdit(null));
+
+function openZoneEdit(zone){
+  adminEditingZone = zone;
+  const panel = $('#zoneEditPanel'); panel.classList.add('open');
+  $('#zoneEditTitle').textContent = zone ? `Édition — ${zone}` : 'Nouvelle zone';
+  $('#editZoneId').value   = zone||'';
+  $('#editZoneId').disabled= !!zone; // on ne renomme pas l'id via le champ (utiliser suppr + recréer)
+
+  // Groupe
+  const sel = $('#editZoneGroup'); sel.innerHTML='<option value="">— Aucun groupe —</option>';
+  Object.keys(GROUPS).forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; sel.appendChild(o); });
+  // Trouver le groupe actuel
+  sel.value = groupOf(zone)||'';
+
+  // Déchets
+  adminEditDechets = zone ? [...(dechetsParZone[zone]||[])] : [];
+  renderEditDechets();
+
+  // Coords
+  $('#editCoordX').value = zone && coords[zone] ? coords[zone].x : '';
+  $('#editCoordY').value = zone && coords[zone] ? coords[zone].y : '';
+
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderEditDechets(){
+  const cont = $('#editDechetTags'); cont.innerHTML='';
+  adminEditDechets.forEach((d,i)=>{
+    const tag=document.createElement('span'); tag.className='dechet-tag';
+    tag.innerHTML=`${d}<button data-i="${i}" title="Retirer">×</button>`;
+    tag.querySelector('button').addEventListener('click',()=>{ adminEditDechets.splice(i,1); renderEditDechets(); });
+    cont.appendChild(tag);
+  });
+}
+
+$('#btnAddDechet').addEventListener('click', ()=>{
+  const v=$('#editDechetInput').value.trim(); if(!v) return;
+  if(!adminEditDechets.includes(v)) adminEditDechets.push(v);
+  $('#editDechetInput').value=''; renderEditDechets();
+});
+$('#editDechetInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#btnAddDechet').click(); }});
+
+$('#btnSaveZoneEdit').addEventListener('click', async ()=>{
+  const id = ($('#editZoneId').value||'').trim().toUpperCase();
+  if(!id){ toast('Identifiant requis (ex: Z5)'); return; }
+  const grp = $('#editZoneGroup').value;
+  const x = parseFloat($('#editCoordX').value); const y = parseFloat($('#editCoordY').value);
+
+  dechetsParZone[id] = [...adminEditDechets];
+  if(!isNaN(x)&&!isNaN(y)) coords[id]={x:Math.round(x),y:Math.round(y)};
+
+  // Groupes : retirer de tous, puis ajouter au groupe sélectionné
+  Object.keys(GROUPS).forEach(g=>{ GROUPS[g]=GROUPS[g].filter(z=>z!==id); });
+  if(grp && GROUPS[grp]) GROUPS[grp].push(id);
+
+  rebuildDerivedData();
+  await saveCurrentConfig();
+  refreshAppData();
+  renderAdminZoneList(); renderAdminMap();
+  $('#zoneEditPanel').classList.remove('open');
+  toast(`Zone ${id} enregistrée ✓`);
+});
+
+$('#btnCancelZoneEdit').addEventListener('click', ()=>{ $('#zoneEditPanel').classList.remove('open'); adminPickMode=null; });
+
+$('#btnDeleteZoneEdit').addEventListener('click', async ()=>{
+  const id = adminEditingZone; if(!id) return;
+  if(!confirm(`Supprimer la zone ${id} et tous ses déchets ?`)) return;
+  delete dechetsParZone[id]; delete coords[id];
+  Object.keys(GROUPS).forEach(g=>{ GROUPS[g]=GROUPS[g].filter(z=>z!==id); });
+  rebuildDerivedData();
+  await saveCurrentConfig();
+  refreshAppData();
+  renderAdminZoneList(); renderAdminMap();
+  $('#zoneEditPanel').classList.remove('open');
+  toast(`Zone ${id} supprimée`);
+});
+
+/* ---- Placement par clic sur la carte principale ---- */
+$('#btnPickCoord').addEventListener('click', ()=>{
+  adminPickMode='zone';
+  closeAdmin();
+  toast('Cliquez sur le plan pour placer la zone… (Échap pour annuler)');
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && adminPickMode){ adminPickMode=null; toast('Placement annulé'); }
+});
+
+// Intercept map click pour le mode pick admin
+const _origMapClick = mapContainer.addEventListener.bind(mapContainer);
+mapContainer.addEventListener('click', e=>{
+  if(!adminPickMode) return;
+  const r=mapContainer.getBoundingClientRect();
+  const pt=screenToImg(e.clientX-r.left, e.clientY-r.top);
+  if(adminPickMode==='zone'){
+    $('#editCoordX').value=Math.round(pt.x); $('#editCoordY').value=Math.round(pt.y);
+    toast(`Position définie : (${Math.round(pt.x)}, ${Math.round(pt.y)})`);
+  } else if(adminPickMode==='emp'){
+    adminEmpPickCallback && adminEmpPickCallback(Math.round(pt.x), Math.round(pt.y));
+  }
+  adminPickMode=null; openAdmin();
+}, true); // capture = true pour passer avant le handler normal
+
+/* ============ PANE EMPLACEMENTS ============ */
+let adminEmpPickCallback=null;
+
+function renderAdminEmpList(){
+  const search = ($('#adminEmpSearch')||{}).value?.toLowerCase()||'';
+  const list = $('#adminEmpList'); list.innerHTML='';
+  const keys = Object.keys(coords).filter(k=>!/^Z\d+$/i.test(k))
+    .filter(k=>!search||k.toLowerCase().includes(search))
+    .sort();
+
+  if(!keys.length){ list.innerHTML='<div class="muted" style="padding:10px">Aucun emplacement</div>'; return; }
+
+  keys.forEach(name=>{
+    const pt = coords[name];
+    const row = document.createElement('div');
+    row.className='zone-row'; row.style.gridTemplateColumns='1fr 90px 90px 36px 36px';
+    row.innerHTML=`
+      <input type="text" value="${name}" data-orig="${name}" placeholder="Nom"/>
+      <input type="number" value="${pt.x}" data-key="x" data-name="${name}" placeholder="X" style="width:100%"/>
+      <input type="number" value="${pt.y}" data-key="y" data-name="${name}" placeholder="Y" style="width:100%"/>
+      <button class="btn secondary small pick-emp-btn" data-name="${name}" title="Placer sur le plan">🎯</button>
+      <button class="btn danger small del-emp-btn" data-name="${name}" title="Supprimer">🗑</button>
+    `;
+    // Renommage
+    const nameInput = row.querySelector('input[data-orig]');
+    nameInput.addEventListener('change', async ()=>{
+      const oldName=nameInput.dataset.orig, newName=nameInput.value.trim();
+      if(!newName||newName===oldName) return;
+      coords[newName]=coords[oldName]; delete coords[oldName];
+      nameInput.dataset.orig=newName; row.querySelectorAll('[data-name]').forEach(el=>el.dataset.name=newName);
+      await saveCurrentConfig(); refreshAppData(); toast(`Emplacement renommé ✓`);
+    });
+    // Coordonnées inline
+    row.querySelectorAll('input[data-key]').forEach(inp=>{
+      inp.addEventListener('change', async ()=>{
+        const n=inp.dataset.name; if(!coords[n]) return;
+        coords[n][inp.dataset.key]=parseInt(inp.value)||0;
+        await saveCurrentConfig(); refreshAppData(); renderAdminMap();
+      });
+    });
+    // Placement sur plan
+    row.querySelector('.pick-emp-btn').addEventListener('click', ()=>{
+      const n=row.querySelector('input[data-orig]').dataset.orig;
+      adminPickMode='emp';
+      adminEmpPickCallback=(x,y)=>{
+        coords[n]={x,y};
+        row.querySelector('[data-key="x"]').value=x;
+        row.querySelector('[data-key="y"]').value=y;
+        saveCurrentConfig(); refreshAppData(); renderAdminMap();
+        toast(`Position ${n} mise à jour ✓`);
+      };
+      closeAdmin(); toast('Cliquez sur le plan pour repositionner… (Échap pour annuler)');
+    });
+    // Suppression
+    row.querySelector('.del-emp-btn').addEventListener('click', async ()=>{
+      if(!confirm(`Supprimer l'emplacement "${name}" ?`)) return;
+      delete coords[name]; await saveCurrentConfig(); refreshAppData(); renderAdminEmpList();
+    });
+    list.appendChild(row);
+  });
+}
+
+$('#adminEmpSearch').addEventListener('input', renderAdminEmpList);
+$('#btnAdminAddEmp').addEventListener('click', async ()=>{
+  const name = prompt('Nom du nouvel emplacement :'); if(!name?.trim()) return;
+  if(coords[name.trim()]){ toast('Cet emplacement existe déjà'); return; }
+  coords[name.trim()]={x:0,y:0};
+  await saveCurrentConfig(); refreshAppData(); renderAdminEmpList();
+  toast(`Emplacement "${name.trim()}" ajouté — définissez ses coordonnées`);
+});
+
+/* ============ PANE GROUPES ============ */
+function renderAdminGroupList(){
+  const list=$('#adminGroupList'); list.innerHTML='';
+  Object.keys(GROUPS).forEach(g=>{
+    const row=document.createElement('div'); row.className='group-row';
+    row.innerHTML=`
+      <input type="text" value="${g}" data-orig="${g}" placeholder="Code groupe" style="font-weight:700"/>
+      <div>
+        <div class="dechet-tags" id="gtags-${g}"></div>
+        <div class="row" style="margin-top:6px">
+          <select id="gadd-${g}" style="font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;flex:1"></select>
+          <button class="btn small gadd-btn" data-g="${g}">+</button>
+        </div>
+      </div>
+      <button class="btn danger small" data-g="${g}" id="gdel-${g}">🗑</button>
+    `;
+    // Remplir le select avec zones disponibles
+    const sel=row.querySelector(`#gadd-${g}`);
+    ZONES_ALL.forEach(z=>{ const o=document.createElement('option'); o.value=z; o.textContent=z; sel.appendChild(o); });
+
+    // Afficher zones du groupe
+    const renderGTags=()=>{
+      const cont=document.getElementById(`gtags-${g}`); if(!cont) return; cont.innerHTML='';
+      (GROUPS[g]||[]).forEach((z,i)=>{
+        const tag=document.createElement('span'); tag.className='dechet-tag';
+        tag.innerHTML=`${z}<button data-i="${i}" title="Retirer">×</button>`;
+        tag.querySelector('button').addEventListener('click', async ()=>{
+          GROUPS[g].splice(i,1); await saveCurrentConfig(); renderGTags();
+        });
+        cont.appendChild(tag);
+      });
+    };
+    renderGTags();
+
+    row.querySelector('.gadd-btn').addEventListener('click', async ()=>{
+      const z=sel.value; if(!z||GROUPS[g].includes(z)) return;
+      GROUPS[g].push(z); await saveCurrentConfig(); renderGTags();
+    });
+
+    // Renommage groupe
+    const nameInp=row.querySelector(`input[data-orig="${g}"]`);
+    nameInp.addEventListener('change', async ()=>{
+      const newG=nameInp.value.trim().toUpperCase(); if(!newG||newG===g) return;
+      GROUPS[newG]=GROUPS[g]; delete GROUPS[g];
+      await saveCurrentConfig(); renderAdminGroupList();
+    });
+
+    // Suppression groupe
+    document.addEventListener('click', async function handler(e){
+      if(e.target.id===`gdel-${g}`){
+        if(!confirm(`Supprimer le groupe "${g}" ?`)) return;
+        delete GROUPS[g]; await saveCurrentConfig(); renderAdminGroupList();
+        document.removeEventListener('click',handler);
+      }
+    });
+
+    list.appendChild(row);
+  });
+}
+
+$('#btnAdminAddGroup').addEventListener('click', async ()=>{
+  const name=prompt('Code du nouveau groupe (ex: SC) :'); if(!name?.trim()) return;
+  const key=name.trim().toUpperCase();
+  if(GROUPS[key]){ toast('Ce groupe existe déjà'); return; }
+  GROUPS[key]=[]; await saveCurrentConfig(); renderAdminGroupList();
+});
+
+/* ============ PANE PLAN ============ */
+let adminMapBase={s:1,ox:0,oy:0,iw:1,ih:1};
+let adminPreviewImg=null;
+
+function renderAdminMap(){
+  const wrap=$('#adminMapPreview'); const cv=$('#adminCanvas');
+  if(!wrap||!cv) return;
+  const r=wrap.getBoundingClientRect();
+  cv.width=r.width||wrap.offsetWidth||600; cv.height=r.height||320;
+  const ctx2=cv.getContext('2d');
+
+  const img=document.getElementById('mapImage');
+  if(!img||!img.naturalWidth){ ctx2.clearRect(0,0,cv.width,cv.height); return; }
+
+  const iw=img.naturalWidth, ih=img.naturalHeight;
+  const s=Math.min(cv.width/iw, cv.height/ih);
+  const ox=(cv.width-iw*s)/2, oy=(cv.height-ih*s)/2;
+  adminMapBase={s,ox,oy,iw,ih};
+
+  ctx2.clearRect(0,0,cv.width,cv.height);
+  ctx2.drawImage(img, ox, oy, iw*s, ih*s);
+
+  // Zones
+  ZONES_ALL.filter(z=>coords[z]).forEach(z=>{
+    const px=ox+coords[z].x*s, py=oy+coords[z].y*s;
+    ctx2.beginPath(); ctx2.arc(px,py,7,0,Math.PI*2);
+    ctx2.fillStyle='rgba(230,0,126,.7)'; ctx2.fill();
+    ctx2.font=`bold ${Math.max(8,9*s)}px Inter,sans-serif`; ctx2.fillStyle='#fff'; ctx2.textAlign='center'; ctx2.textBaseline='middle';
+    ctx2.fillText(z,px,py);
+  });
+}
+
+$('#adminMapImport').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const raw=await fileToDataURL(f);
+  document.getElementById('mapImage').src=raw;
+  document.getElementById('mapImage').onload=()=>{ fitAndCenter(); renderAdminMap(); };
+  $('#adminMapInfo').textContent=`Image chargée : ${f.name} (${(f.size/1024).toFixed(0)} Ko)`;
+  // Sauvegarder la nouvelle image dans la config
+  const cfg=await idbGet(CONFIG_IDB_KEY)||{};
+  cfg.mapSrc=raw; await idbSet(CONFIG_IDB_KEY,cfg);
+  toast('Plan mis à jour ✓');
+});
+
+/* ============ Import / Export JSON ============ */
+$('#adminJsonImport').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const text=await f.text();
+    const cfg=JSON.parse(text);
+    if(!cfg.coords||!cfg.dechetsParZone){ toast('Fichier JSON invalide (coords ou dechetsParZone manquants)'); return; }
+    applyConfig(cfg);
+    await saveCurrentConfig();
+    refreshAppData();
+    renderAdminAll();
+    toast('Configuration chargée ✓');
+  }catch(err){ toast('Erreur lecture JSON : '+err.message); }
+  e.target.value='';
+});
+
+$('#btnAdminExportJson').addEventListener('click', async ()=>{
+  const cfg=buildCurrentConfig();
+  const blob=new Blob([configToJson(cfg)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='config_tournee.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('config_tournee.json exporté ✓');
+});
+
+$('#btnAdminResetDefault').addEventListener('click', async ()=>{
+  if(!confirm('Remettre la configuration par défaut ? (les données de tournée ne seront pas effacées)')) return;
+  applyConfig(DEFAULT_CONFIG);
+  await saveCurrentConfig();
+  refreshAppData(); renderAdminAll();
+  toast('Configuration réinitialisée ✓');
+});
+
+function buildCurrentConfig(){
+  const mapSrc=document.getElementById('mapImage').src;
+  return { coords, dechetsParZone, groups:GROUPS, mapSrc: mapSrc.startsWith('data:')?mapSrc:'TICP.png' };
+}
+
+async function saveCurrentConfig(){
+  await idbSet(CONFIG_IDB_KEY, buildCurrentConfig());
+}
+
+function renderAdminAll(){
+  renderAdminZoneList();
+  renderAdminEmpList();
+  renderAdminGroupList();
+  setTimeout(renderAdminMap, 80);
+}
+
+/* Recharge les selects et la carte après modif config */
+function refreshAppData(){
+  rebuildDerivedData();
+  if(choicesZone){
+    try{ choicesZone.destroy(); }catch(_){}
+    try{ choicesDechet.destroy(); }catch(_){}
+  }
+  initChoices();
+  drawAll();
+}
+async function init(){
+  await loadConfig();    // charge config depuis IndexedDB (ou valeurs par défaut)
+  await loadReports();   // charge les fiches de tournée
+  initChoices();
+  fitAndCenter();
+  drawAll();
+}
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
